@@ -4,65 +4,312 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>عسكر - إدارة تواصل العملاء</title>
+<meta name="theme-color" content="#174b91">
+<title>ASKER | تواصل العملاء</title>
 <style>
-body{font-family:Arial,sans-serif;background:#f3f6fb;color:#17345c;margin:0;padding:18px}
-main{max-width:650px;margin:auto;background:white;padding:20px;border-radius:16px;box-shadow:0 3px 15px #ccd4df}
-h1{font-size:23px;margin-top:0;color:#174b91}
-p{line-height:1.8}
-button,.file{display:inline-block;background:#174b91;color:white;border:0;border-radius:9px;padding:12px 16px;margin:6px 0;cursor:pointer;font-size:15px}
-input,textarea{box-sizing:border-box;width:100%;padding:12px;margin:8px 0;border:1px solid #ccd4df;border-radius:8px;font:inherit}
-small{color:#56677d}
-#result{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f6fb;padding:12px;border-radius:8px}
+*{box-sizing:border-box}
+body{margin:0;padding:14px;background:#f2f5fa;color:#193657;font-family:Arial,sans-serif}
+main{max-width:760px;margin:auto}
+header,.panel{background:#fff;border-radius:15px;padding:17px;margin-bottom:13px;box-shadow:0 2px 9px #dce3ec}
+header{border-top:5px solid #174b91}
+h1{font-size:23px;margin:0 0 7px;color:#174b91}
+h2{font-size:18px;margin:0 0 13px}
+p{line-height:1.7}
+label{display:block;font-weight:bold;margin:12px 0 6px}
+input[type=file],input[type=text],textarea,select{width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;font:inherit}
+textarea{resize:vertical}
+button,.btn{display:inline-block;border:0;border-radius:9px;padding:11px 13px;margin:5px 2px;background:#174b91;color:white;font:inherit;cursor:pointer}
+button.secondary{background:#e8eef7;color:#174b91}
+button.green{background:#237548}
+button.red{background:#a83232}
+button:disabled{opacity:.45;cursor:not-allowed}
+small,.muted{color:#64748b;font-size:13px;line-height:1.6}
+.stat{display:inline-block;background:#edf3fb;border-radius:9px;padding:10px;margin:3px}
+#preview{max-width:100%;max-height:250px;display:block;margin-top:10px;border-radius:9px}
+.contact{border:1px solid #dbe3ee;border-radius:11px;padding:12px;margin:10px 0;background:#fff}
+.contact strong{display:block;margin-bottom:6px;overflow-wrap:anywhere}
+.contact .phone{direction:ltr;display:inline-block}
+.status{font-size:13px;color:#52657b}
+.row{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.row button{flex:1}
+hr{border:0;border-top:1px solid #e2e8f0;margin:15px 0}
+#notice{padding:10px;border-radius:8px;background:#edf3fb;white-space:pre-wrap;line-height:1.7}
 </style>
 </head>
 <body>
 <main>
+<header>
 <h1>صيدلية عسكر | ASKER Pharmacy</h1>
-<p>إدارة جهات اتصال العملاء — تأسست سنة ١٩٨١</p>
-<p>اختار ملف جهات الاتصال بصيغة VCF من موبايلك. المعالجة بتتم داخل المتصفح، والملف مش بيتبعت للموقع.</p>
-<input type="file" id="file" accept=".vcf,text/vcard">
-<button onclick="readContacts()">قراءة جهات الاتصال</button>
-<div id="result">لم يتم اختيار ملف بعد.</div>
-<button id="export" hidden onclick="exportCSV()">تصدير الأسماء والأرقام إلى CSV</button>
-<hr>
-<h3>تجهيز رسالة الأسبوع</h3>
-<textarea id="message" rows="4" placeholder="اكتب الرسالة التي تريد إرسالها للعملاء"></textarea>
-<p><small>النسخة دي بتجهز بيانات العملاء والرسالة فقط؛ لا ترسل رسائل واتساب تلقائيًا.</small></p>
+<strong>صحتك أولوية</strong>
+<p>تأسست سنة ١٩٨١ · إدارة التواصل الأسبوعي مع العملاء</p>
+</header>
+
+<section class="panel">
+<h2>١. استيراد العملاء</h2>
+<p class="muted">اختار ملف CSV الذي صدّرته من البرنامج السابق. لازم يحتوي على عمود للاسم وعمود لرقم الهاتف، مثل Name,Phone.</p>
+<label for="csv">ملف العملاء CSV</label>
+<input id="csv" type="file" accept=".csv,text/csv">
+<button onclick="importCSV()">استيراد العملاء</button>
+<button class="secondary" onclick="exportCSV()">تصدير نسخة من العملاء</button>
+<button class="secondary" onclick="exportBackup()">نسخة احتياطية للمتابعة</button>
+<p id="importInfo" class="muted">لم يتم استيراد العملاء بعد.</p>
+</section>
+
+<section class="panel">
+<h2>٢. تجهيز رسالة الأسبوع</h2>
+<label for="message">نص الرسالة</label>
+<textarea id="message" rows="4" placeholder="اكتب رسالة مناسبة لعملاء صيدلية عسكر"></textarea>
+<label for="picture">اختيار صورة مرفقة</label>
+<input id="picture" type="file" accept="image/*">
+<img id="preview" hidden alt="معاينة الصورة المختارة">
+<p id="imageInfo" class="muted">لم يتم اختيار صورة.</p>
+<button onclick="saveCampaign()">حفظ الرسالة</button>
+<p class="muted">من زر مشاركة العميل، سنحاول فتح قائمة المشاركة في الموبايل بالنص والصورة معًا. لو المتصفح لا يدعم مشاركة الصورة، ستحتاج إرفاقها داخل واتساب يدويًا.</p>
+</section>
+
+<section class="panel">
+<h2>٣. قائمة التواصل الأسبوعية</h2>
+<div>
+<span class="stat">إجمالي العملاء: <b id="total">0</b></span>
+<span class="stat">تم التواصل: <b id="sent">0</b></span>
+<span class="stat">متبقي: <b id="remaining">0</b></span>
+</div>
+<label for="day">اختار يوم التواصل</label>
+<select id="day" onchange="renderContacts()">
+<option value="0">السبت</option>
+<option value="1">الأحد</option>
+<option value="2">الاثنين</option>
+<option value="3">الثلاثاء</option>
+<option value="4">الأربعاء</option>
+<option value="5">الخميس</option>
+<option value="6">الجمعة</option>
+<option value="all">كل العملاء</option>
+</select>
+<label for="search">بحث بالاسم أو الرقم</label>
+<input id="search" type="text" placeholder="اكتب اسم العميل أو جزءًا من الرقم" oninput="renderContacts()">
+<div class="row">
+<button onclick="showNext()">العميل التالي الذي لم يتم التواصل معه</button>
+<button class="secondary" onclick="renderContacts()">تحديث القائمة</button>
+</div>
+<div id="contacts"></div>
+</section>
+
+<section class="panel">
+<h2>٤. بيانات البرنامج</h2>
+<p id="cycle" class="muted"></p>
+<button class="secondary" onclick="newWeek()">بدء دورة أسبوعية جديدة</button>
+<p class="muted">بدء دورة جديدة يغيّر دورة المتابعة الحالية، ولا يحذف العملاء. سجلات الدورات السابقة تظل محفوظة في بيانات المتصفح ما دامت لم تُمسح.</p>
+<button class="red" onclick="clearContacts()">حذف بيانات العملاء من هذا المتصفح</button>
+</section>
+
+<div id="notice" role="status">ابدأ باستيراد ملف CSV.</div>
+<p class="muted">تنبيه: هذا البرنامج ينظم التواصل ولا يرسل رسائل جماعية تلقائيًا. استخدم الرسائل بموافقة العملاء واحترم طلب أي عميل بعدم تلقي رسائل.</p>
 </main>
+
 <script>
+const $=id=>document.getElementById(id);
+const DAYS=['السبت','الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة'];
 let contacts=[];
-function readContacts(){
- const f=document.getElementById('file').files[0];
- if(!f){alert('اختار ملف VCF الأول');return}
- const r=new FileReader();
- r.onload=()=>{
-  const text=r.result;
-  const cards=text.split(/END:VCARD/i);
-  contacts=[];
-  for(const card of cards){
-   if(!card.trim())continue;
-   const name=(card.match(/^FN[^:]*:(.*)$/mi)||[])[1]||'بدون اسم';
-   const phones=[...card.matchAll(/^TEL[^:]*:(.*)$/gmi)].map(x=>x[1].trim()).filter(Boolean);
-   for(const phone of phones) contacts.push({name:name.trim(),phone});
+let imageFile=null;
+let imageURL=null;
+let statuses={};
+let activeCycle=weekKey(new Date());
+
+function weekKey(date){
+ const d=new Date(date);
+ const day=(d.getDay()+1)%7;
+ d.setDate(d.getDate()-day);
+ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function notice(text){$('notice').textContent=text}
+function saveData(){
+ try{
+ localStorage.setItem('asker_contacts_v2',JSON.stringify(contacts));
+ localStorage.setItem('asker_statuses_v2',JSON.stringify(statuses));
+ localStorage.setItem('asker_cycle_v2',activeCycle);
+ localStorage.setItem('asker_message_v2',$('message').value);
+ }catch(e){notice('تعذر الحفظ في المتصفح. صدّر نسخة احتياطية لتجنب فقد البيانات.')}
+}
+function loadData(){
+ try{
+ contacts=JSON.parse(localStorage.getItem('asker_contacts_v2')||'[]');
+ statuses=JSON.parse(localStorage.getItem('asker_statuses_v2')||'{}');
+ activeCycle=localStorage.getItem('asker_cycle_v2')||weekKey(new Date());
+ $('message').value=localStorage.getItem('asker_message_v2')||'';
+ }catch(e){contacts=[];statuses={};}
+ $('cycle').textContent='دورة المتابعة الحالية تبدأ من: '+activeCycle;
+ renderContacts();
+}
+function parseCSV(text){
+ const rows=[];let row=[],field='',quoted=false;
+ text=text.replace(/^\uFEFF/,'');
+ for(let i=0;i<text.length;i++){
+  const c=text[i];
+  if(c==='"'&&quoted&&text[i+1]==='"'){field+='"';i++}
+  else if(c==='"'){quoted=!quoted}
+  else if(c===','&&!quoted){row.push(field);field=''}
+  else if((c==='\n'||c==='\r')&&!quoted){
+   if(c==='\r'&&text[i+1]==='\n')i++;
+   row.push(field);if(row.some(x=>x.trim()))rows.push(row);
+   row=[];field='';
+  }else field+=c;
+ }
+ row.push(field);if(row.some(x=>x.trim()))rows.push(row);
+ return rows;
+}
+function normalizePhone(p){return String(p||'').replace(/[^\d+]/g,'').trim()}
+async function importCSV(){
+ const f=$('csv').files[0];
+ if(!f){notice('اختار ملف CSV الأول.');return}
+ try{
+ const rows=parseCSV(await f.text());
+ if(!rows.length){notice('الملف فارغ.');return}
+ let start=0,nameCol=0,phoneCol=1;
+ const heads=rows[0].map(x=>x.trim().toLowerCase());
+ const n=heads.findIndex(x=>['name','الاسم','اسم العميل','contact name'].includes(x));
+ const p=heads.findIndex(x=>['phone','telephone','mobile','رقم الهاتف','الهاتف','الموبايل','الرقم'].includes(x));
+ if(n>=0&&p>=0){nameCol=n;phoneCol=p;start=1}
+ const imported=[];
+ for(let i=start;i<rows.length;i++){
+  const name=(rows[i][nameCol]||'بدون اسم').trim();
+  const phone=normalizePhone(rows[i][phoneCol]);
+  if(phone.length<5)continue;
+  imported.push({name:name||'بدون اسم',phone:phone,id:phone});
+ }
+ if(!imported.length){notice('لم أجد أرقامًا صالحة. تأكد من ترتيب أعمدة الاسم والرقم في CSV.');return}
+ const map=new Map(contacts.map(c=>[c.id,c]));
+ imported.forEach(c=>{if(!map.has(c.id))map.set(c.id,c)});
+ contacts=[...map.values()];
+ saveData();renderContacts();
+ $('importInfo').textContent='تم استيراد '+imported.length+' سجل صالح. إجمالي الأرقام المختلفة المحفوظة: '+contacts.length+'.';
+ notice('تم استيراد العملاء بنجاح. راجع الأسماء والأرقام قبل بدء التواصل.');
+ }catch(e){notice('تعذر قراءة الملف. تأكد أنه CSV صالح.')}
+}
+function currentStatus(c){
+ const s=statuses[c.id];
+ return s&&s.cycle===activeCycle?s.status:'pending';
+}
+function setStatus(id,status){
+ statuses[id]={cycle:activeCycle,status:status,updated:new Date().toISOString()};
+ saveData();renderContacts();
+}
+function assignedDay(c){
+ const i=contacts.findIndex(x=>x.id===c.id);
+ return i<0?0:i%7;
+}
+function filteredContacts(){
+ const day=$('day').value, q=$('search').value.trim().toLowerCase();
+ return contacts.filter(c=>{
+  if(day!=='all'&&assignedDay(c)!==Number(day))return false;
+  return !q||(c.name+' '+c.phone).toLowerCase().includes(q);
+ });
+}
+function renderContacts(){
+ const all=contacts;
+ const sent=all.filter(c=>currentStatus(c)==='sent').length;
+ $('total').textContent=all.length;
+ $('sent').textContent=sent;
+ $('remaining').textContent=all.length-sent;
+ const list=filteredContacts();
+ const container=$('contacts');
+ container.innerHTML='';
+ if(!list.length){container.textContent='لا توجد نتائج مطابقة. استورد العملاء أو غيّر اليوم أو البحث.';return}
+ const frag=document.createDocumentFragment();
+ list.slice(0,150).forEach(c=>{
+  const div=document.createElement('div');div.className='contact';
+  const name=document.createElement('strong');name.textContent=c.name;
+  const phone=document.createElement('span');phone.className='phone';phone.textContent=c.phone;
+  const info=document.createElement('p');info.className='status';
+  const s=currentStatus(c);
+  info.textContent='يوم التواصل: '+DAYS[assignedDay(c)]+' · الحالة: '+(s==='sent'?'تم تسجيل التواصل':s==='skip'?'تم التخطي':'لم يتم التواصل');
+  const actions=document.createElement('div');actions.className='row';
+  const share=document.createElement('button');share.textContent='مشاركة الرسالة والصورة';share.onclick=()=>shareWith(c);
+  const done=document.createElement('button');done.className='green';done.textContent='تسجيل تم التواصل';done.onclick=()=>setStatus(c.id,'sent');
+  const skip=document.createElement('button');skip.className='secondary';skip.textContent='تخطي';skip.onclick=()=>setStatus(c.id,'skip');
+  const pending=document.createElement('button');pending.className='secondary';pending.textContent='إعادة إلى المتبقي';pending.onclick=()=>setStatus(c.id,'pending');
+  actions.append(share,done,skip,pending);
+  div.append(name,phone,info,actions);frag.append(div);
+ });
+ container.append(frag);
+ if(list.length>150){
+  const more=document.createElement('p');more.className='muted';
+  more.textContent='يظهر أول 150 نتيجة فقط في القائمة لتسهيل الاستخدام. استخدم البحث لتحديد بقية العملاء.';
+  container.append(more);
+ }
+}
+function showNext(){
+ const c=filteredContacts().find(x=>currentStatus(x)!=='sent');
+ if(!c){notice('لا يوجد عميل متبقٍ في الاختيار الحالي.');return}
+ $('search').value=c.name;
+ renderContacts();
+ notice('تم العثور على العميل التالي: '+c.name+' — '+c.phone);
+}
+function saveCampaign(){
+ localStorage.setItem('asker_message_v2',$('message').value);
+ notice('تم حفظ نص الرسالة على هذا الجهاز. اختار العميل من القائمة واضغط مشاركة الرسالة والصورة.');
+}
+$('picture').addEventListener('change',()=>{
+ const f=$('picture').files[0];
+ imageFile=f||null;
+ if(imageURL)URL.revokeObjectURL(imageURL);
+ imageURL=null;
+ if(!f){$('preview').hidden=true;$('imageInfo').textContent='لم يتم اختيار صورة.';return}
+ if(!f.type.startsWith('image/')){imageFile=null;$('imageInfo').textContent='الملف المختار ليس صورة.';return}
+ imageURL=URL.createObjectURL(f);
+ $('preview').src=imageURL;$('preview').hidden=false;
+ $('imageInfo').textContent='الصورة المختارة: '+f.name+' ('+Math.round(f.size/1024)+' كيلوبايت).';
+});
+async function shareWith(c){
+ const message=$('message').value.trim();
+ if(!message){notice('اكتب نص الرسالة أولًا.');return}
+ try{
+  if(imageFile&&navigator.share&&navigator.canShare&&navigator.canShare({files:[imageFile]})){
+   await navigator.share({title:'صيدلية عسكر',text:message,files:[imageFile]});
+   notice('فتحت قائمة المشاركة. اختار واتساب والعميل المناسب، وتأكد بنفسك من الإرسال قبل تسجيل تم التواصل.');
+   return;
   }
-  document.getElementById('result').textContent=
-   'عدد سجلات الأرقام التي تم استخراجها: '+contacts.length+
-   '\nتمت القراءة داخل المتصفح. راجع البيانات قبل استخدامها.';
-  document.getElementById('export').hidden=contacts.length===0;
- };
- r.readAsText(f);
+  if(imageFile){
+   const a=document.createElement('a');a.href=imageURL;a.download=imageFile.name||'asker-image.jpg';a.click();
+  }
+  const url='https://wa.me/'+c.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(message);
+  window.open(url,'_blank');
+  notice(imageFile?'فتحنا محادثة واتساب وحاولنا تنزيل الصورة. أرفق الصورة يدويًا قبل الإرسال.':'تم فتح محادثة واتساب برسالة جاهزة. راجعها واضغط إرسال بنفسك.');
+ }catch(e){
+  if(e.name!=='AbortError')notice('تعذر فتح المشاركة. جرّب فتح واتساب يدويًا ونسخ الرسالة.');
+ }
 }
 function exportCSV(){
- const esc=s=>'"'+String(s).replace(/"/g,'""')+'"';
  const rows=[['Name','Phone'],...contacts.map(c=>[c.name,c.phone])];
- const csv='\uFEFF'+rows.map(row=>row.map(esc).join(',')).join('\r\n');
- const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
- const url=URL.createObjectURL(blob);
- const a=document.createElement('a');
- a.href=url;a.download='Asker_Contacts.csv';a.click();
- URL.revokeObjectURL(url);
+ const csv='\uFEFF'+rows.map(row=>row.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+ downloadFile(csv,'Asker_Contacts.csv','text/csv;charset=utf-8');
 }
+function exportBackup(){
+ const data={contacts,statuses,activeCycle,message:$('message').value,exportedAt:new Date().toISOString()};
+ downloadFile(JSON.stringify(data,null,2),'Asker_Contacts_Backup.json','application/json');
+}
+function downloadFile(content,name,type){
+ const blob=new Blob([content],{type:type});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement('a');a.href=url;a.download=name;a.click();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function newWeek(){
+ if(!confirm('بدء دورة أسبوعية جديدة؟ ستظهر الحالات كمتبقية في الدورة الجديدة، مع الاحتفاظ بسجل الدورة السابقة.'))return;
+ activeCycle=weekKey(new Date());
+ if(Object.values(statuses).some(s=>s.cycle===activeCycle)){
+  if(!confirm('الدورة الحالية هي نفس أسبوع التقويم الحالي. هل تريد بدء دورة جديدة بتاريخ مستقل؟'))return;
+  activeCycle=activeCycle+'-extra-'+Date.now();
+ }
+ saveData();$('cycle').textContent='دورة المتابعة الحالية: '+activeCycle;renderContacts();
+ notice('بدأت دورة متابعة جديدة. حالات الدورات السابقة لم تُحذف.');
+}
+function clearContacts(){
+ if(!confirm('تأكيد حذف العملاء وسجل المتابعة المحفوظين على هذا المتصفح؟ صدّر نسخة احتياطية أولًا إن كنت تحتاجها.'))return;
+ contacts=[];statuses={};saveData();renderContacts();
+ $('importInfo').textContent='تم حذف بيانات العملاء من هذا المتصفح.';
+ notice('تم حذف بيانات العملاء من هذا المتصفح.');
+}
+loadData();
 </script>
 </body>
 </html>
