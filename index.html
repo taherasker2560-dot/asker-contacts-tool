@@ -1,0 +1,68 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>عسكر - إدارة تواصل العملاء</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f3f6fb;color:#17345c;margin:0;padding:18px}
+main{max-width:650px;margin:auto;background:white;padding:20px;border-radius:16px;box-shadow:0 3px 15px #ccd4df}
+h1{font-size:23px;margin-top:0;color:#174b91}
+p{line-height:1.8}
+button,.file{display:inline-block;background:#174b91;color:white;border:0;border-radius:9px;padding:12px 16px;margin:6px 0;cursor:pointer;font-size:15px}
+input,textarea{box-sizing:border-box;width:100%;padding:12px;margin:8px 0;border:1px solid #ccd4df;border-radius:8px;font:inherit}
+small{color:#56677d}
+#result{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f6fb;padding:12px;border-radius:8px}
+</style>
+</head>
+<body>
+<main>
+<h1>صيدلية عسكر | ASKER Pharmacy</h1>
+<p>إدارة جهات اتصال العملاء — تأسست سنة ١٩٨١</p>
+<p>اختار ملف جهات الاتصال بصيغة VCF من موبايلك. المعالجة بتتم داخل المتصفح، والملف مش بيتبعت للموقع.</p>
+<input type="file" id="file" accept=".vcf,text/vcard">
+<button onclick="readContacts()">قراءة جهات الاتصال</button>
+<div id="result">لم يتم اختيار ملف بعد.</div>
+<button id="export" hidden onclick="exportCSV()">تصدير الأسماء والأرقام إلى CSV</button>
+<hr>
+<h3>تجهيز رسالة الأسبوع</h3>
+<textarea id="message" rows="4" placeholder="اكتب الرسالة التي تريد إرسالها للعملاء"></textarea>
+<p><small>النسخة دي بتجهز بيانات العملاء والرسالة فقط؛ لا ترسل رسائل واتساب تلقائيًا.</small></p>
+</main>
+<script>
+let contacts=[];
+function readContacts(){
+ const f=document.getElementById('file').files[0];
+ if(!f){alert('اختار ملف VCF الأول');return}
+ const r=new FileReader();
+ r.onload=()=>{
+  const text=r.result;
+  const cards=text.split(/END:VCARD/i);
+  contacts=[];
+  for(const card of cards){
+   if(!card.trim())continue;
+   const name=(card.match(/^FN[^:]*:(.*)$/mi)||[])[1]||'بدون اسم';
+   const phones=[...card.matchAll(/^TEL[^:]*:(.*)$/gmi)].map(x=>x[1].trim()).filter(Boolean);
+   for(const phone of phones) contacts.push({name:name.trim(),phone});
+  }
+  document.getElementById('result').textContent=
+   'عدد سجلات الأرقام التي تم استخراجها: '+contacts.length+
+   '\nتمت القراءة داخل المتصفح. راجع البيانات قبل استخدامها.';
+  document.getElementById('export').hidden=contacts.length===0;
+ };
+ r.readAsText(f);
+}
+function exportCSV(){
+ const esc=s=>'"'+String(s).replace(/"/g,'""')+'"';
+ const rows=[['Name','Phone'],...contacts.map(c=>[c.name,c.phone])];
+ const csv='\uFEFF'+rows.map(row=>row.map(esc).join(',')).join('\r\n');
+ const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement('a');
+ a.href=url;a.download='Asker_Contacts.csv';a.click();
+ URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
