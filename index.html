@@ -92,6 +92,18 @@ small,.muted{font-size:13px;color:#64748b;line-height:1.7}
 </div>
 <p class="muted">تبدأ العملية بالعملاء المتبقين. عند فتح محادثة، راجع الرسالة والصورة واضغط إرسال داخل واتساب بنفسك، ثم ارجع وسجّل النتيجة.</p>
 <div id="queueInfo" class="muted"></div>
+<div id="currentContact" class="contact" hidden>
+<h2>العميل الحالي</h2>
+<strong id="currentName"></strong>
+<span id="currentPhone" class="phone"></span>
+<p id="currentStatus" class="muted"></p>
+<div class="row">
+<button id="currentOpen">فتح المحادثة</button>
+<button id="currentShare" class="secondary">مشاركة الصورة والرسالة</button>
+<button id="currentSent" class="green">تسجيل تم الإرسال</button>
+<button id="currentSkip" class="secondary">تخطي</button>
+</div>
+</div>
 <div id="contacts"></div>
 </section>
 
@@ -117,6 +129,7 @@ let states={};
 let cycle=weekKey(new Date());
 let imageFile=null,imageURL=null;
 let queue=[],queuePos=-1;
+let currentId=null;
 
 function say(s){$('notice').textContent=s}
 function weekKey(d){
@@ -126,18 +139,24 @@ function weekKey(d){
 }
 function save(){
  try{
- localStorage.setItem('asker_v3_contacts',JSON.stringify(contacts));
- localStorage.setItem('asker_v3_states',JSON.stringify(states));
- localStorage.setItem('asker_v3_cycle',cycle);
- localStorage.setItem('asker_v3_message',$('message').value);
- }catch(e){say('تعذر الحفظ في المتصفح. صدّر نسخة احتياطية.')}
+ localStorage.setItem('asker_contacts_snapshot',JSON.stringify({contacts,states,cycle,message:$('message').value}));
+ return true;
+ }catch(e){say('تعذر الحفظ في المتصفح. التغيير لم يُحفظ. صدّر نسخة احتياطية.');return false}
 }
 function load(){
  try{
+ const snapshot=localStorage.getItem('asker_contacts_snapshot');
+ if(snapshot){
+  const d=JSON.parse(snapshot);
+  if(!Array.isArray(d.contacts)||!d.states||typeof d.states!=='object'||Array.isArray(d.states))throw Error();
+  contacts=d.contacts;states=d.states;cycle=d.cycle||weekKey(new Date());
+  $('message').value=d.message||'';
+ }else{
  contacts=JSON.parse(localStorage.getItem('asker_v3_contacts')||'[]');
  states=JSON.parse(localStorage.getItem('asker_v3_states')||'{}');
  cycle=localStorage.getItem('asker_v3_cycle')||weekKey(new Date());
  $('message').value=localStorage.getItem('asker_v3_message')||'';
+ }
  }catch(e){contacts=[];states={}}
  render();
 }
@@ -193,7 +212,7 @@ async function importContacts(){
   let start=0;
   if(ni<0||pi<0){ni=0;pi=1}
   else start=1;
-  const map=new Map(contacts.map(c=>[c.id,c]));
+  const map=new Map(contacts.map(c=>[c.id,{...c}]));
   let count=0,invalid=0;
   for(let i=start;i<rows.length;i++){
    const name=String(rows[i][ni]||'بدون اسم').trim()||'بدون اسم';
@@ -202,12 +221,16 @@ async function importContacts(){
    if(!map.has(phone)){map.set(phone,{id:phone,name,phone});count++}
    else if(map.get(phone).name==='بدون اسم'&&name!=='بدون اسم')map.get(phone).name=name;
   }
-  contacts=[...map.values()];queue=[];queuePos=-1;save();render();
+  const previous=contacts;
+  contacts=[...map.values()];
+  if(!save()){contacts=previous;render();return}
+  resetQueue();render();
   $('importInfo').textContent='أضيف '+count+' رقم جديد. إجمالي الأرقام المختلفة: '+contacts.length+'. صفوف مستبعدة: '+invalid+'.';
   say('تم الاستيراد. راجع الأرقام المصرية والدولية قبل بدء التواصل.');
  }catch(e){say('تعذر قراءة CSV. تأكد من الملف وترتيب أعمدة الاسم والرقم.')}
 }
 function render(){
+ renderCurrent();
  const sent=contacts.filter(c=>getStatus(c)==='sent').length;
  $('total').textContent=contacts.length;
  $('sent').textContent=sent;
@@ -234,9 +257,26 @@ function render(){
  });
  if(list.length>100){const p=document.createElement('p');p.className='muted';p.textContent='تظهر أول 100 نتيجة. استخدم البحث لتضييق القائمة.';box.append(p)}
 }
+function currentContact(){return contacts.find(c=>c.id===currentId)}
+function renderCurrent(){
+ const c=currentContact();
+ $('currentContact').hidden=!c;
+ if(!c)return;
+ $('currentName').textContent=c.name;
+ $('currentPhone').textContent='+'+c.phone;
+ const status=getStatus(c);
+ $('currentStatus').textContent=status==='sent'?'تم تسجيل الإرسال':status==='skip'?'تم التخطي':'بعد الإرسال داخل واتساب، ارجع وسجّل النتيجة هنا.';
+ $('currentSent').disabled=status==='sent';
+ $('currentSkip').disabled=status!=='pending';
+}
 function mark(c,status){
+ const previous=states[c.id];
  states[c.id]={cycle,status,at:new Date().toISOString()};
- save();render();say('تم تحديث حالة '+c.name+'.');
+ if(!save()){
+  if(previous===undefined)delete states[c.id];else states[c.id]=previous;
+  render();return;
+ }
+ render();say('تم حفظ حالة '+c.name+'.');
 }
 function startQueue(){
  const q=$('search').value.trim().toLowerCase(),day=$('day').value;
@@ -258,6 +298,7 @@ function openBusiness(c){
  const url='https://wa.me/'+c.phone+'?text='+encodeURIComponent(msg);
  // محاولة فتح WhatsApp Business على Android، مع بديل ويب عند عدم نجاح الرابط.
  const intent='intent://send?phone='+encodeURIComponent(c.phone)+'&text='+encodeURIComponent(msg)+'#Intent;scheme=whatsapp;package=com.whatsapp.w4b;S.browser_fallback_url='+encodeURIComponent(url)+';end';
+ currentId=c.id;renderCurrent();
  say('العميل الحالي: '+c.name+' — +'+c.phone+'\nجاري فتح المحادثة. اضغط إرسال داخل التطبيق ثم ارجع وسجّل النتيجة.'+(imageFile?' الصورة لا تُرفق برابط المحادثة؛ استخدم زر المشاركة أو نزّلها وأرفقها يدويًا.':''));
  window.location.href=/Android/i.test(navigator.userAgent)?intent:url;
 }
@@ -269,6 +310,7 @@ async function shareMedia(c){
   say('مشاركة الصور غير مدعومة هنا. استخدم تنزيل الصورة، ثم افتح محادثة العميل وأرفقها يدويًا.');return;
  }
  try{
+  currentId=c.id;renderCurrent();
   await navigator.share(data);
   say('تم تسليم المشاركة للتطبيق المختار. تأكد من إرسالها إلى '+c.name+' — +'+c.phone+'، ثم سجّل النتيجة بنفسك. لو لم تظهر الرسالة مع الصورة أضفها يدويًا.');
  }catch(e){say(e.name==='AbortError'?'تم إلغاء المشاركة. لم تتغير حالة العميل.':'تعذرت المشاركة. نزّل الصورة وأرفقها يدويًا في محادثة العميل.')}
@@ -277,7 +319,7 @@ function downloadImage(){
  if(!imageFile||!imageURL){say('اختار الصورة أولًا.');return}
  const a=document.createElement('a');a.href=imageURL;a.download=imageFile.name||'asker-image.jpg';a.click();
 }
-function resetQueue(){queue=[];queuePos=-1;$('queueInfo').textContent=''}
+function resetQueue(){queue=[];queuePos=-1;currentId=null;$('queueInfo').textContent='';renderCurrent()}
 function nextContact(){
  if(!queue.length)startQueue();
  if(!queue.length)return;
@@ -310,8 +352,14 @@ async function restore(){
   const d=JSON.parse(await f.text());
   if(!Array.isArray(d.contacts)||!d.states)throw Error();
   if(!confirm('استبدال بيانات المتصفح بالنسخة الاحتياطية؟'))return;
+  const previous={contacts,states,cycle,message:$('message').value};
   contacts=d.contacts;states=d.states;cycle=d.cycle||weekKey(new Date());
-  $('message').value=d.message||'';resetQueue();save();render();say('تمت استعادة النسخة الاحتياطية.');
+  $('message').value=d.message||'';
+  if(!save()){
+   contacts=previous.contacts;states=previous.states;cycle=previous.cycle;
+   $('message').value=previous.message;render();return;
+  }
+  resetQueue();render();say('تمت استعادة النسخة الاحتياطية.');
  }catch(e){say('ملف النسخة الاحتياطية غير صالح.')}
 }
 $('picture').addEventListener('change',()=>{
@@ -324,7 +372,11 @@ $('picture').addEventListener('change',()=>{
 });
 $('importBtn').addEventListener('click',importContacts);
 $('exportBtn').addEventListener('click',exportContacts);
-$('saveMsg').addEventListener('click',()=>{save();say('تم حفظ الرسالة على هذا الجهاز.')});
+$('saveMsg').addEventListener('click',()=>{if(save())say('تم حفظ الرسالة على هذا الجهاز.')});
+$('currentOpen').addEventListener('click',()=>{const c=currentContact();if(c)openBusiness(c)});
+$('currentShare').addEventListener('click',()=>{const c=currentContact();if(c)shareMedia(c)});
+$('currentSent').addEventListener('click',()=>{const c=currentContact();if(c)mark(c,'sent')});
+$('currentSkip').addEventListener('click',()=>{const c=currentContact();if(c)mark(c,'skip')});
 $('downloadImage').addEventListener('click',downloadImage);
 $('startBtn').addEventListener('click',startQueue);
 $('nextBtn').addEventListener('click',nextContact);
@@ -335,8 +387,10 @@ $('restoreBtn').addEventListener('click',()=>$('backupFile').click());
 $('backupFile').addEventListener('change',restore);
 $('newCycle').addEventListener('click',()=>{
  if(!confirm('بدء دورة جديدة؟'))return;
+ const previous=cycle;
  cycle=weekKey(new Date())+'-cycle-'+Date.now();
- resetQueue();save();render();say('بدأت دورة جديدة. قائمة العملاء محفوظة، وستُسجّل حالات الإرسال للدورة الجديدة.');
+ if(!save()){cycle=previous;render();return}
+ resetQueue();render();say('بدأت دورة جديدة. قائمة العملاء محفوظة، وستُسجّل حالات الإرسال للدورة الجديدة.');
 });
 load();
 </script>
