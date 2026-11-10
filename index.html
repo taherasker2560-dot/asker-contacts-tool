@@ -31,6 +31,10 @@ small,.muted{font-size:13px;color:#64748b;line-height:1.7}
 .contact strong{display:block;overflow-wrap:anywhere;margin-bottom:5px}
 .phone{direction:ltr;display:inline-block}
 #preview{max-width:100%;max-height:240px;display:block;margin-top:10px;border-radius:9px}
+/* checkbox rows and left-to-right fields (ids, tokens) */
+.check{display:flex;align-items:center;gap:8px;font-weight:normal}
+.check input{width:auto;margin:0;min-width:20px;min-height:20px}
+input[dir=ltr]{text-align:left}
 #notice{background:#edf3fb;border-radius:9px;padding:12px;line-height:1.7;white-space:pre-wrap}
 </style>
 </head>
@@ -67,7 +71,39 @@ small,.muted{font-size:13px;color:#64748b;line-height:1.7}
 </section>
 
 <section class="card">
-<h2>٣. بدء التواصل</h2>
+<h2>٣. ربط ميتا (WhatsApp Cloud API)</h2>
+<p class="muted">اختياري: للإرسال من رقمك الرسمي على ميتا مباشرة من الصفحة، بدون فتح واتساب لكل عميل. يحتاج رقمًا مسجّلًا على WhatsApp Cloud API وقالب رسالة معتمدًا من ميتا. بيانات الربط تُحفظ على هذا الجهاز فقط ولا تدخل في النسخة الاحتياطية.</p>
+<label for="metaPhoneId">معرّف رقم الهاتف (Phone number ID)</label>
+<input id="metaPhoneId" inputmode="numeric" dir="ltr" autocomplete="off" placeholder="123456789012345">
+<label for="metaToken">رمز الوصول (Access token)</label>
+<input id="metaToken" type="password" dir="ltr" autocomplete="off" placeholder="EAA...">
+<label for="metaTemplate">اسم القالب المعتمد</label>
+<input id="metaTemplate" dir="ltr" autocomplete="off" placeholder="asker_weekly">
+<label for="metaLang">لغة القالب</label>
+<input id="metaLang" dir="ltr" autocomplete="off" placeholder="ar">
+<label for="metaVars">متغيرات نص القالب</label>
+<select id="metaVars">
+<option value="none">بدون متغيرات</option>
+<option value="name">{{1}} = اسم العميل</option>
+<option value="msg">{{1}} = رسالة الأسبوع</option>
+<option value="name_msg">{{1}} = اسم العميل، {{2}} = رسالة الأسبوع</option>
+</select>
+<label class="check"><input id="metaImage" type="checkbox"> رأس القالب صورة (تُرسل الصورة المختارة في الخطوة ٢)</label>
+<label class="check"><input id="metaRemember" type="checkbox" checked> تذكّر بيانات الربط على هذا الجهاز</label>
+<div class="row">
+<button id="metaSave" class="secondary">حفظ الربط</button>
+<button id="metaTest">اختبار الربط</button>
+<button id="metaClear" class="red">مسح الربط</button>
+</div>
+<p id="metaInfo" class="muted">غير مربوط.</p>
+<label for="metaTestPhone">رقم للتجربة (رقمك أنت)</label>
+<input id="metaTestPhone" inputmode="tel" dir="ltr" autocomplete="off" placeholder="01xxxxxxxxx">
+<button id="metaTestSend" class="secondary">إرسال رسالة تجربة</button>
+<p class="muted">معرّف الرقم تجده في developers.facebook.com: تطبيقك ← WhatsApp ← API Setup. استخدم رمزًا دائمًا (System User) بصلاحية whatsapp_business_messaging، لأن الرمز المؤقت ينتهي خلال ٢٤ ساعة. القالب يُنشأ ويُعتمد من WhatsApp Manager، وكل رسالة تسويقية لها تكلفة من ميتا. أرسل فقط للعملاء الموافقين على استقبال رسائلك.</p>
+</section>
+
+<section class="card">
+<h2>٤. بدء التواصل</h2>
 <div class="stats">
 <div class="stat">العملاء<br><b id="total">0</b></div>
 <div class="stat">تم تسجيلهم<br><b id="sent">0</b></div>
@@ -90,6 +126,13 @@ small,.muted{font-size:13px;color:#64748b;line-height:1.7}
 <button id="startBtn">ابدأ التواصل</button>
 <button id="nextBtn" class="green">العميل التالي</button>
 </div>
+<div id="metaBox" hidden>
+<div class="row">
+<button id="metaBulk" class="green">إرسال للمتبقين عبر ميتا</button>
+<button id="metaStop" class="red" disabled>إيقاف الإرسال</button>
+</div>
+<p id="metaProgress" class="muted">يرسل للعملاء المتبقين في اليوم والبحث المختارين. أبقِ الصفحة مفتوحة حتى ينتهي.</p>
+</div>
 <p class="muted">تبدأ العملية بالعملاء المتبقين. عند فتح محادثة، راجع الرسالة والصورة واضغط إرسال داخل واتساب بنفسك، ثم ارجع وسجّل النتيجة.</p>
 <div id="queueInfo" class="muted"></div>
 <div id="currentContact" class="contact" hidden>
@@ -99,6 +142,7 @@ small,.muted{font-size:13px;color:#64748b;line-height:1.7}
 <p id="currentStatus" class="muted"></p>
 <div class="row">
 <button id="currentOpen">فتح المحادثة</button>
+<button id="currentMeta" hidden>إرسال عبر ميتا</button>
 <button id="currentShare" class="secondary">مشاركة الصورة والرسالة</button>
 <button id="currentSent" class="green">تسجيل تم الإرسال</button>
 <button id="currentSkip" class="secondary">تخطي</button>
@@ -108,7 +152,7 @@ small,.muted{font-size:13px;color:#64748b;line-height:1.7}
 </section>
 
 <section class="card">
-<h2>٤. النسخ الاحتياطي</h2>
+<h2>٥. النسخ الاحتياطي</h2>
 <button id="backupBtn" class="secondary">تصدير نسخة احتياطية كاملة</button>
 <button id="restoreBtn" class="secondary">استعادة نسخة احتياطية</button>
 <input id="backupFile" type="file" accept=".json,application/json" hidden>
@@ -117,7 +161,7 @@ small,.muted{font-size:13px;color:#64748b;line-height:1.7}
 </section>
 
 <div id="notice" role="status">استورد العملاء للبدء.</div>
-<p class="muted">الإرسال الجماعي التلقائي في الخلفية غير متاح من صفحة الويب وحدها. هذا البرنامج يجهّز المحادثة ويتابع الإرسال الذي تؤكده أنت.</p>
+<p class="muted">بدون ربط ميتا، البرنامج يجهّز المحادثة وأنت تضغط إرسال داخل واتساب. مع ربط ميتا، الإرسال يتم من الصفحة بقالب معتمد، ويتوقف إذا أُغلقت الصفحة.</p>
 </main>
 
 <script>
@@ -130,6 +174,15 @@ let cycle=weekKey(new Date());
 let imageFile=null,imageURL=null;
 let queue=[],queuePos=-1;
 let currentId=null;
+// ربط ميتا: الإعدادات محفوظة في مفتاح منفصل حتى لا تدخل في النسخة الاحتياطية.
+const META_API='https://graph.facebook.com/v23.0/';
+const META_KEY='asker_meta';
+const META_DELAY=1200;
+const META_DEFAULT={phoneId:'',token:'',template:'',lang:'ar',vars:'none',image:false,testPhone:''};
+const BUSY='انتظر انتهاء الإرسال عبر ميتا أو أوقفه أولًا.';
+let meta={...META_DEFAULT};
+let metaMediaId=null,metaRun=null;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
 function say(s){$('notice').textContent=s}
 function weekKey(d){
@@ -160,10 +213,13 @@ function load(){
  }catch(e){contacts=[];states={}}
  render();
 }
-function normPhone(value){
- let p=String(value||'').trim()
+function latinDigits(value){
+ return String(value||'').trim()
   .replace(/[٠-٩]/g,c=>String(c.charCodeAt(0)-1632))
-  .replace(/[۰-۹]/g,c=>String(c.charCodeAt(0)-1776))
+  .replace(/[۰-۹]/g,c=>String(c.charCodeAt(0)-1776));
+}
+function normPhone(value){
+ let p=latinDigits(value)
   .replace(/[\s()\-\u200e\u200f]/g,'');
  if(!/^\+?\d+$/.test(p))return '';
  if(p.startsWith('+'))p=p.slice(1);
@@ -201,6 +257,7 @@ function assigned(c){
  return Math.max(0,contacts.findIndex(x=>x.id===c.id))%7;
 }
 async function importContacts(){
+ if(metaRun){say(BUSY);return}
  const f=$('csv').files[0];
  if(!f){say('اختار ملف CSV الأول.');return}
  try{
@@ -246,16 +303,23 @@ function render(){
   const name=document.createElement('strong');name.textContent=c.name;
   const phone=document.createElement('span');phone.className='phone';phone.textContent='+'+c.phone;
   const status=document.createElement('p');status.className='muted';
-  status.textContent=DAYS[assigned(c)]+' · '+(getStatus(c)==='sent'?'تم تسجيل الإرسال':getStatus(c)==='skip'?'تم التخطي':'متبقي');
+  status.textContent=DAYS[assigned(c)]+' · '+statusLabel(c);
   const row=document.createElement('div');row.className='row';
   const open=document.createElement('button');open.textContent='فتح واتساب بيزنس';open.onclick=()=>openBusiness(c);
   const share=document.createElement('button');share.className='secondary';share.textContent='مشاركة الصورة والرسالة';share.onclick=()=>shareMedia(c);
   const done=document.createElement('button');done.className='green';done.textContent='تسجيل تم الإرسال';done.onclick=()=>mark(c,'sent');
   const skip=document.createElement('button');skip.className='secondary';skip.textContent='تخطي';skip.onclick=()=>mark(c,'skip');
   const reset=document.createElement('button');reset.className='secondary';reset.textContent='إعادة للمتبقي';reset.onclick=()=>mark(c,'pending');
-  row.append(open,share,done,skip,reset);d.append(name,phone,status,row);box.append(d);
+  row.append(open);
+  if(metaReady()){const m=document.createElement('button');m.textContent='إرسال عبر ميتا';m.onclick=()=>metaOne(c);row.append(m)}
+  row.append(share,done,skip,reset);d.append(name,phone,status,row);box.append(d);
  });
  if(list.length>100){const p=document.createElement('p');p.className='muted';p.textContent='تظهر أول 100 نتيجة. استخدم البحث لتضييق القائمة.';box.append(p)}
+}
+function statusLabel(c){
+ const s=getStatus(c);
+ if(s==='sent')return states[c.id].via==='meta'?'تم الإرسال عبر ميتا':'تم تسجيل الإرسال';
+ return s==='skip'?'تم التخطي':'متبقي';
 }
 function currentContact(){return contacts.find(c=>c.id===currentId)}
 function renderCurrent(){
@@ -265,7 +329,7 @@ function renderCurrent(){
  $('currentName').textContent=c.name;
  $('currentPhone').textContent='+'+c.phone;
  const status=getStatus(c);
- $('currentStatus').textContent=status==='sent'?'تم تسجيل الإرسال':status==='skip'?'تم التخطي':'بعد الإرسال داخل واتساب، ارجع وسجّل النتيجة هنا.';
+ $('currentStatus').textContent=status!=='pending'?statusLabel(c):'بعد الإرسال داخل واتساب، ارجع وسجّل النتيجة هنا.';
  $('currentSent').disabled=status==='sent';
  $('currentSkip').disabled=status!=='pending';
 }
@@ -278,18 +342,22 @@ function mark(c,status){
  }
  render();say('تم حفظ حالة '+c.name+'.');
 }
-function startQueue(){
+function pendingSelection(){
  const q=$('search').value.trim().toLowerCase(),day=$('day').value;
- queue=contacts.filter(c=>
+ return contacts.filter(c=>
   getStatus(c)==='pending'&&
   (day==='all'||assigned(c)===Number(day))&&
   (!q||(c.name+' '+c.phone).toLowerCase().includes(q))
  );
+}
+function startQueue(){
+ queue=pendingSelection();
  queuePos=-1;
  $('queueInfo').textContent='عدد العملاء المتبقين في قائمة التواصل: '+queue.length;
  say(queue.length?'القائمة جاهزة. اضغط العميل التالي لفتح المحادثة.':'لا يوجد عملاء متبقون في الاختيار الحالي.');
 }
 function openBusiness(c){
+ if(metaRun){say(BUSY);return}
  const msg=$('message').value.trim();
  if(!msg){say('اكتب الرسالة أولًا.');return}
  if(!c.phone||normPhone(c.phone)!==c.phone){
@@ -332,6 +400,237 @@ function nextContact(){
  say('العميل الحالي: '+found.name+' — +'+found.phone+'. بعد الإرسال ارجع واضغط تسجيل تم الإرسال.');
  openBusiness(found);
 }
+// ===== ربط ميتا (WhatsApp Cloud API) =====
+const META_HINTS={
+ 4:'تم تجاوز حد الطلبات. انتظر قليلًا ثم أكمل.',
+ 10:'الرمز لا يملك صلاحية whatsapp_business_messaging.',
+ 100:'بيانات غير صحيحة. راجع معرّف رقم الهاتف واسم القالب ولغته.',
+ 190:'رمز الوصول منتهي أو غير صحيح. استخدم رمز System User دائمًا.',
+ 200:'الرمز لا يملك صلاحية whatsapp_business_messaging.',
+ 368:'الحساب ممنوع مؤقتًا من الإرسال بسبب سياسات ميتا.',
+ 80007:'تم تجاوز حد الطلبات. انتظر قليلًا ثم أكمل.',
+ 130429:'تم تجاوز سرعة الإرسال المسموحة. انتظر ثم أكمل.',
+ 131008:'معلومة مطلوبة ناقصة في طلب الإرسال.',
+ 131009:'قيمة غير صالحة في طلب الإرسال.',
+ 131021:'لا يمكن الإرسال لنفس رقم المرسل.',
+ 131026:'الرسالة لم تصل: الرقم قد لا يكون على واتساب.',
+ 131030:'رقم الاختبار يرسل فقط للأرقام المضافة في قائمة المستلمين في Meta.',
+ 131031:'حساب واتساب على ميتا مقفول. راجع Meta Business Suite.',
+ 131042:'مشكلة في وسيلة الدفع بحساب ميتا.',
+ 131048:'ميتا أوقفت الإرسال مؤقتًا بسبب بلاغات أو حظر من العملاء.',
+ 131049:'ميتا لم ترسل لهذا العميل الآن (حد الرسائل التسويقية للعميل).',
+ 131050:'العميل أوقف استقبال الرسائل التسويقية.',
+ 131056:'رسائل كثيرة لنفس العميل في وقت قصير.',
+ 132000:'عدد المتغيرات لا يطابق القالب. غيّر «متغيرات نص القالب».',
+ 132001:'القالب غير موجود بهذا الاسم واللغة، أو لم يُعتمد بعد.',
+ 132005:'النص أطول من المسموح بعد إضافة المتغيرات.',
+ 132007:'محتوى المتغير يخالف سياسة القالب.',
+ 132012:'نوع المتغير لا يطابق القالب (مثلًا القالب يحتاج صورة في الرأس أو لا يحتاجها).',
+ 132015:'القالب موقوف بسبب جودة منخفضة.',
+ 132016:'القالب معطّل.',
+ 133010:'رقم الهاتف غير مسجّل على Cloud API.'
+};
+// أخطاء تخص عميلًا واحدًا: نكمل مع الباقي. أي خطأ آخر يوقف الإرسال الجماعي.
+const META_RECIPIENT=new Set([131026,131049,131050,131056]);
+function metaError(err,net){
+ err=err||{};
+ const code=Number(err.code)||0;
+ const detail=err.error_data&&err.error_data.details||err.error_user_msg||err.message||'';
+ const text=net?'تعذر الاتصال بميتا. تأكد من الإنترنت.':(META_HINTS[code]||'رفضت ميتا الطلب.')+(code?' (رمز '+code+')':'')+(detail?'\n'+detail:'');
+ return Object.assign(new Error(text),{code,fatal:!META_RECIPIENT.has(code)});
+}
+async function metaFetch(path,options){
+ options=options||{};
+ let r;
+ try{r=await fetch(META_API+path,{...options,headers:{...options.headers,Authorization:'Bearer '+meta.token}})}
+ catch(e){throw metaError(null,true)}
+ const j=await r.json().catch(()=>({}));
+ if(!r.ok||j.error)throw metaError(j.error||{code:r.status});
+ return j;
+}
+function metaReady(){return !!(meta.phoneId&&meta.token&&meta.template)}
+function fillMetaForm(){
+ $('metaPhoneId').value=meta.phoneId;$('metaToken').value=meta.token;$('metaTemplate').value=meta.template;
+ $('metaLang').value=meta.lang;$('metaVars').value=meta.vars;$('metaImage').checked=!!meta.image;
+ $('metaTestPhone').value=meta.testPhone;
+}
+function loadMeta(){
+ try{
+  const d=JSON.parse(localStorage.getItem(META_KEY)||'null');
+  if(d&&typeof d==='object')for(const k in META_DEFAULT)if(typeof d[k]===typeof META_DEFAULT[k])meta[k]=d[k];
+ }catch(e){}
+ if(!['none','name','msg','name_msg'].includes(meta.vars))meta.vars='none';
+ fillMetaForm();
+ if(metaReady())$('metaInfo').textContent='تم حفظ الربط (القالب: '+meta.template+'). اضغط «اختبار الربط» للتأكد.';
+ renderMeta();
+}
+function renderMeta(){
+ const on=metaReady();
+ $('metaBox').hidden=!on;
+ $('currentMeta').hidden=!on;
+ $('metaBulk').disabled=!!metaRun;
+ $('metaStop').disabled=!metaRun||metaRun.stop;
+ ['metaSave','metaTest','metaClear','metaTestSend','currentMeta'].forEach(id=>$(id).disabled=!!metaRun);
+}
+function saveMeta(quiet){
+ if(metaRun){say(BUSY);return false}
+ const m={
+  phoneId:latinDigits($('metaPhoneId').value),
+  token:$('metaToken').value.trim(),
+  template:$('metaTemplate').value.trim(),
+  lang:$('metaLang').value.trim()||'ar',
+  vars:$('metaVars').value,
+  image:$('metaImage').checked,
+  testPhone:$('metaTestPhone').value.trim()
+ };
+ if(!/^\d{5,20}$/.test(m.phoneId)){say('معرّف رقم الهاتف أرقام فقط. تجده في Meta: WhatsApp ← API Setup.');return false}
+ if(!/^\S{20,}$/.test(m.token)){say('رمز الوصول غير مكتمل.');return false}
+ if(!/^[a-z0-9_]{1,512}$/.test(m.template)){say('اسم القالب يُكتب كما في Meta: حروف إنجليزية صغيرة وأرقام و _ فقط.');return false}
+ if(!/^[a-z]{2,3}(_[A-Z]{2})?$/.test(m.lang)){say('لغة القالب تُكتب مثل ar أو en_US.');return false}
+ const changed=m.phoneId!==meta.phoneId||m.token!==meta.token;
+ meta=m;
+ if(changed)metaMediaId=null;
+ let stored=true;
+ try{
+  if($('metaRemember').checked)localStorage.setItem(META_KEY,JSON.stringify(meta));
+  else localStorage.removeItem(META_KEY);
+ }catch(e){stored=false}
+ $('metaInfo').textContent='تم حفظ الربط (القالب: '+meta.template+'). اضغط «اختبار الربط» للتأكد.';
+ renderMeta();render();
+ if(!stored)say('تعذر حفظ الربط في المتصفح. سيعمل حتى إغلاق الصفحة فقط.');
+ else if(!quiet)say($('metaRemember').checked?'تم حفظ ربط ميتا على هذا الجهاز.':'تم حفظ الربط لهذه الجلسة فقط.');
+ return true;
+}
+function clearMeta(){
+ if(metaRun){say(BUSY);return}
+ if(!confirm('مسح بيانات ربط ميتا من هذا الجهاز؟'))return;
+ meta={...META_DEFAULT};metaMediaId=null;
+ try{localStorage.removeItem(META_KEY)}catch(e){}
+ fillMetaForm();$('metaInfo').textContent='غير مربوط.';
+ renderMeta();render();say('تم مسح بيانات ربط ميتا من هذا الجهاز.');
+}
+async function testMeta(){
+ if(!saveMeta(true))return;
+ $('metaInfo').textContent='جاري اختبار الربط...';
+ metaRun={stop:true};renderMeta();
+ try{
+  const j=await metaFetch(encodeURIComponent(meta.phoneId)+'?fields=display_phone_number,verified_name,quality_rating');
+  $('metaInfo').textContent='مربوط: '+[j.verified_name,j.display_phone_number,j.quality_rating&&'الجودة: '+j.quality_rating].filter(Boolean).join(' · ');
+  say('الربط يعمل. أرسل رسالة تجربة لرقمك قبل الإرسال للعملاء.');
+ }catch(e){$('metaInfo').textContent='فشل اختبار الربط.';say('فشل اختبار الربط: '+e.message)}
+ finally{metaRun=null;renderMeta()}
+}
+function metaCheck(){
+ if(!metaReady()){say('احفظ بيانات ربط ميتا أولًا.');return false}
+ if(meta.vars!=='none'&&meta.vars!=='name'&&!$('message').value.trim()){say('القالب يستخدم رسالة الأسبوع. اكتب الرسالة أولًا.');return false}
+ if(meta.image&&!imageFile){say('رأس القالب صورة. اختار الصورة في الخطوة ٢.');return false}
+ return true;
+}
+// ميتا ترفض المتغيرات التي فيها سطر جديد أو Tab أو أكثر من ٤ مسافات متتالية.
+function metaParam(s){return String(s||'').replace(/[\t\r]/g,' ').replace(/\s*\n\s*/g,' · ').replace(/ {4,}/g,'   ').trim()}
+async function metaMedia(){
+ if(metaMediaId)return metaMediaId;
+ if(!imageFile)throw Object.assign(new Error('رأس القالب صورة. اختار الصورة في الخطوة ٢.'),{fatal:true});
+ if(!/^image\/(jpeg|png)$/.test(imageFile.type))throw Object.assign(new Error('ميتا تقبل صور JPG أو PNG فقط.'),{fatal:true});
+ if(imageFile.size>5*1024*1024)throw Object.assign(new Error('حجم الصورة أكبر من ٥ ميجا.'),{fatal:true});
+ const fd=new FormData();
+ fd.append('messaging_product','whatsapp');
+ fd.append('type',imageFile.type);
+ fd.append('file',imageFile,imageFile.name||'asker-image.jpg');
+ const file=imageFile;
+ const j=await metaFetch(encodeURIComponent(meta.phoneId)+'/media',{method:'POST',body:fd});
+ if(!j.id)throw metaError({});
+ if(file===imageFile)metaMediaId=j.id;
+ return j.id;
+}
+async function metaSend(c,mediaId){
+ const name=c.name&&c.name!=='بدون اسم'&&metaParam(c.name)||'عميلنا العزيز';
+ const msg=metaParam($('message').value);
+ const vals={none:[],name:[name],msg:[msg],name_msg:[name,msg]}[meta.vars]||[];
+ const template={name:meta.template,language:{code:meta.lang}};
+ const components=[];
+ if(meta.image)components.push({type:'header',parameters:[{type:'image',image:{id:mediaId}}]});
+ if(vals.length)components.push({type:'body',parameters:vals.map(text=>({type:'text',text}))});
+ if(components.length)template.components=components;
+ const j=await metaFetch(encodeURIComponent(meta.phoneId)+'/messages',{
+  method:'POST',
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({messaging_product:'whatsapp',recipient_type:'individual',to:c.phone,type:'template',template})
+ });
+ const id=j.messages&&j.messages[0]&&j.messages[0].id;
+ if(!id)throw metaError({});
+ return id;
+}
+function markMeta(c,wamid){
+ states[c.id]={cycle,status:'sent',at:new Date().toISOString(),via:'meta',wamid};
+ return save();
+}
+async function metaOne(c){
+ if(metaRun){say(BUSY);return}
+ if(!metaCheck())return;
+ if(getStatus(c)==='sent'&&!confirm('تم تسجيل الإرسال لهذا العميل في هذه الدورة. إرسال مرة أخرى عبر ميتا؟'))return;
+ currentId=c.id;
+ metaRun={stop:true};renderMeta();render();
+ say('جاري الإرسال إلى '+c.name+' عبر ميتا...');
+ try{
+  const mediaId=meta.image?await metaMedia():null;
+  const saved=markMeta(c,await metaSend(c,mediaId));
+  say('ميتا استلمت الرسالة إلى '+c.name+' — +'+c.phone+'.'+(saved?' تم تسجيل الإرسال.':' لكن تعذر حفظ الحالة في المتصفح.'));
+ }catch(e){say('لم يتم الإرسال إلى '+c.name+': '+e.message)}
+ finally{metaRun=null;renderMeta();render()}
+}
+async function metaTestSend(){
+ if(!saveMeta(true)||!metaCheck())return;
+ const phone=normPhone($('metaTestPhone').value);
+ if(!phone){say('اكتب رقم التجربة صحيحًا، مثل 01xxxxxxxxx.');return}
+ metaRun={stop:true};renderMeta();
+ say('جاري إرسال رسالة تجربة إلى +'+phone+'...');
+ try{
+  const mediaId=meta.image?await metaMedia():null;
+  await metaSend({name:'',phone},mediaId);
+  say('ميتا استلمت رسالة التجربة إلى +'+phone+'. تأكد أنها وصلت بالشكل الصحيح قبل الإرسال للعملاء.');
+ }catch(e){say('فشلت رسالة التجربة: '+e.message)}
+ finally{metaRun=null;renderMeta()}
+}
+async function metaBulk(){
+ if(metaRun){say(BUSY);return}
+ if(!metaCheck())return;
+ const list=pendingSelection();
+ if(!list.length){say('لا يوجد عملاء متبقون في الاختيار الحالي.');return}
+ if(!confirm('سيتم إرسال القالب «'+meta.template+'» من رقمك على ميتا إلى '+list.length+' عميل.\nكل رسالة تسويقية لها تكلفة من ميتا. هل جرّبت رسالة لرقمك أولًا؟\n\nمتابعة؟'))return;
+ const run=metaRun={stop:false};
+ resetQueue();renderMeta();
+ let wake=null;
+ try{wake=await navigator.wakeLock.request('screen')}catch(e){}
+ let ok=0,streak=0,stopped='',notSaved=false;
+ const failed=[];
+ try{
+  const mediaId=meta.image?await metaMedia():null;
+  for(let i=0;i<list.length;i++){
+   if(run.stop){stopped='تم إيقاف الإرسال. اضغط الزر مرة أخرى لإكمال المتبقين.';break}
+   const c=list[i];
+   if(getStatus(c)!=='pending')continue;
+   $('metaProgress').textContent='جاري الإرسال '+(i+1)+' من '+list.length+': '+c.name+' · تم '+ok+' · فشل '+failed.length;
+   try{
+    if(!markMeta(c,await metaSend(c,mediaId)))notSaved=true;
+    ok++;streak=0;render();
+   }catch(e){
+    if(e.fatal){stopped='توقف الإرسال عند '+c.name+': '+e.message;break}
+    failed.push(c.name+' +'+c.phone+': '+e.message);
+    if(++streak>=5){stopped='توقف الإرسال بعد ٥ أخطاء متتالية. راجع الأخطاء.';break}
+   }
+   if(i<list.length-1)await sleep(META_DELAY);
+  }
+ }catch(e){stopped='توقف الإرسال: '+e.message}
+ finally{
+  metaRun=null;
+  if(wake)wake.release().catch(()=>{});
+  renderMeta();render();
+ }
+ const summary='عبر ميتا: استلمت ميتا '+ok+' رسالة'+(failed.length?' · فشل '+failed.length:'')+'.';
+ $('metaProgress').textContent=summary;
+ say(summary+(stopped?'\n'+stopped:'')+(notSaved?'\nتعذر حفظ بعض الحالات في المتصفح. صدّر نسخة احتياطية الآن.':'')+(failed.length?'\n\n'+failed.slice(0,20).join('\n')+(failed.length>20?'\n...':''):'')+'\n\n«استلمت ميتا» لا يعني بالضرورة أن الرسالة وصلت للعميل؛ تقارير الوصول تحتاج ربط Webhook.');
+}
 function exportFile(data,name,type){
  const blob=new Blob([data],{type});
  const url=URL.createObjectURL(blob);
@@ -347,7 +646,8 @@ function backup(){
  exportFile(JSON.stringify({contacts,states,cycle,message:$('message').value},null,2),'Asker_Backup.json','application/json');
 }
 async function restore(){
- const f=$('backupFile').files[0];if(!f)return;
+ const f=$('backupFile').files[0];$('backupFile').value='';if(!f)return;
+ if(metaRun){say(BUSY);return}
  try{
   const d=JSON.parse(await f.text());
   if(!Array.isArray(d.contacts)||!d.states)throw Error();
@@ -363,7 +663,7 @@ async function restore(){
  }catch(e){say('ملف النسخة الاحتياطية غير صالح.')}
 }
 $('picture').addEventListener('change',()=>{
- const f=$('picture').files[0];imageFile=f||null;
+ const f=$('picture').files[0];imageFile=f||null;metaMediaId=null;
  if(imageURL)URL.revokeObjectURL(imageURL);imageURL=null;
  if(!f){$('preview').hidden=true;$('imageInfo').textContent='لم يتم اختيار صورة.';return}
  if(!f.type.startsWith('image/')){imageFile=null;say('اختار ملف صورة صالحًا.');return}
@@ -378,6 +678,14 @@ $('currentShare').addEventListener('click',()=>{const c=currentContact();if(c)sh
 $('currentSent').addEventListener('click',()=>{const c=currentContact();if(c)mark(c,'sent')});
 $('currentSkip').addEventListener('click',()=>{const c=currentContact();if(c)mark(c,'skip')});
 $('downloadImage').addEventListener('click',downloadImage);
+$('currentMeta').addEventListener('click',()=>{const c=currentContact();if(c)metaOne(c)});
+$('metaSave').addEventListener('click',()=>saveMeta(false));
+$('metaTest').addEventListener('click',testMeta);
+$('metaClear').addEventListener('click',clearMeta);
+$('metaTestSend').addEventListener('click',metaTestSend);
+$('metaBulk').addEventListener('click',metaBulk);
+$('metaStop').addEventListener('click',()=>{if(metaRun&&!metaRun.stop){metaRun.stop=true;renderMeta();$('metaProgress').textContent+=' · جاري الإيقاف...'}});
+window.addEventListener('beforeunload',e=>{if(metaRun&&!metaRun.stop){e.preventDefault();e.returnValue=''}});
 $('startBtn').addEventListener('click',startQueue);
 $('nextBtn').addEventListener('click',nextContact);
 $('search').addEventListener('input',()=>{resetQueue();render()});
@@ -386,12 +694,14 @@ $('backupBtn').addEventListener('click',backup);
 $('restoreBtn').addEventListener('click',()=>$('backupFile').click());
 $('backupFile').addEventListener('change',restore);
 $('newCycle').addEventListener('click',()=>{
+ if(metaRun){say(BUSY);return}
  if(!confirm('بدء دورة جديدة؟'))return;
  const previous=cycle;
  cycle=weekKey(new Date())+'-cycle-'+Date.now();
  if(!save()){cycle=previous;render();return}
  resetQueue();render();say('بدأت دورة جديدة. قائمة العملاء محفوظة، وستُسجّل حالات الإرسال للدورة الجديدة.');
 });
+loadMeta();
 load();
 </script>
 </body>
