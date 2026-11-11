@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>نظام صيدلية عسكر</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#7d1028">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: نفس شكل بوت النواقص (شريط أحمر فوق، بحث المخزون، 3 أقسام تحت) + شاشة «الخريطة» للهيكل كله.
+   الألوان نفس tokens البوت (ar/app.css)، ومعاها نسخة ليلي. */
+:root {
+  --crimson: #7d1028;
+  --crimson-deep: #560a1b;
+  --accent-ink: #6a0d22;
+  --rose: #f7e9ec;
+  --rose-line: #ead2d8;
+  --gold: #c39a3e;
+  --paper: #fbf8f8;
+  --card: #ffffff;
+  --ink: #241518;
+  --muted: #76666a;
+  --line: #ece3e5;
+  --good: #1d6f48;
+  --good-bg: #e4f3eb;
+  --warn: #8d5b00;
+  --warn-bg: #fbf0d9;
+  --bad: #a3162f;
+  --bad-bg: #fbe4e8;
+  --idle: #5f5a5c;
+  --idle-bg: #eeeaeb;
+  --on-bar: #ffffff;
+  --bar: #7d1028;
+  --font: 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif;
+  --radius: 16px;
+  --nav-h: 68px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --crimson: #7d1028; --crimson-deep: #4a0817; --accent-ink: #f2a7b6; --rose: #3a1f26; --rose-line: #55313b;
+    --gold: #d4b05a; --paper: #171012; --card: #22181b; --ink: #f4eaec; --muted: #bba8ad; --line: #3a2b2f;
+    --good: #7fd6a6; --good-bg: #173326; --warn: #f1c86f; --warn-bg: #3a2d10; --bad: #ff9aab; --bad-bg: #401a22;
+    --idle: #c9c0c2; --idle-bg: #34292c; --on-bar: #ffffff; --bar: #c4465f; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --crimson: #7d1028; --crimson-deep: #4a0817; --accent-ink: #f2a7b6; --rose: #3a1f26; --rose-line: #55313b;
+  --gold: #d4b05a; --paper: #171012; --card: #22181b; --ink: #f4eaec; --muted: #bba8ad; --line: #3a2b2f;
+  --good: #7fd6a6; --good-bg: #173326; --warn: #f1c86f; --warn-bg: #3a2d10; --bad: #ff9aab; --bad-bg: #401a22;
+  --idle: #c9c0c2; --idle-bg: #34292c; --on-bar: #ffffff; --bar: #c4465f; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-tap-highlight-color: transparent; }
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.65;
+  background: var(--paper);
+  color: var(--ink);
+}
+body.try { padding-bottom: calc(var(--nav-h) + 16px + env(safe-area-inset-bottom, 0px)); }
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30;
+  background: var(--crimson);
+}
+.wrap {
+  max-width: 720px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+button { font: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.35; }
+h2 { font-size: 1.15rem; margin: 0 0 6px; }
+h3 { font-size: 1rem; margin: 0; }
+p { margin: 0; }
+.hint { color: var(--muted); font-size: 0.9rem; }
+.num, .stat b { font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; }
+
+/* ---------- app bar ---------- */
+.appbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  background: linear-gradient(160deg, var(--crimson) 0%, var(--crimson-deep) 100%);
+  color: var(--on-bar); border-bottom: 2px solid var(--gold);
+}
+.appbar .wrap { display: flex; align-items: center; gap: 12px; padding-block: 10px; }
+.mark {
+  width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center;
+  box-shadow: 0 0 0 1.5px var(--gold); font-weight: 700; font-size: 1.25rem;
+}
+.appbar .titles { flex: 1; min-width: 0; }
+.appbar h1 { margin: 0; font-size: 1.15rem; }
+.appbar p { font-size: 0.85rem; opacity: 0.85; }
+.icon-btn {
+  width: 44px; height: 44px; flex: none; border: 0; border-radius: 12px; display: grid; place-items: center;
+  background: rgba(255, 255, 255, 0.12); color: var(--on-bar);
+}
+.icon-btn[aria-pressed="true"] { background: rgba(255, 255, 255, 0.28); }
+.icon-btn svg { width: 22px; height: 22px; }
+
+/* ---------- mode switch ---------- */
+.modes { display: flex; gap: 6px; padding: 4px; margin-block: 14px 10px; background: var(--rose); border-radius: 14px; }
+.modes button {
+  flex: 1; min-height: 44px; border: 0; border-radius: 11px; background: transparent; color: var(--accent-ink); font-weight: 500;
+}
+.modes button[aria-pressed="true"] { background: var(--card); color: var(--ink); font-weight: 700; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.banner { font-size: 0.85rem; color: var(--warn); background: var(--warn-bg); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; }
+
+/* ---------- badges ---------- */
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 1px 9px; border-radius: 999px; font-size: 0.75rem; font-weight: 500; white-space: nowrap; }
+.b-live { color: var(--good); background: var(--good-bg); }
+.b-p1 { color: var(--warn); background: var(--warn-bg); }
+.b-p2 { color: var(--accent-ink); background: var(--rose); }
+.b-p3 { color: var(--idle); background: var(--idle-bg); }
+.src { font-size: 0.75rem; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-block: 8px 2px; }
+
+/* ---------- map ---------- */
+.lead { margin-bottom: 12px; }
+.lead p + p { margin-top: 6px; }
+.section { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+.section > header { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.section > header svg { width: 26px; height: 26px; color: var(--accent-ink); flex: none; }
+.section > header .why { font-size: 0.85rem; color: var(--muted); }
+.rows { display: grid; gap: 0; margin-top: 6px; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding-block: 10px; border-top: 1px solid var(--line); }
+.row:first-child { border-top: 0; }
+.row .what { grid-column: 1 / -1; color: var(--muted); font-size: 0.9rem; min-width: 0; }
+.row .name { font-weight: 700; min-width: 0; }
+.row .tags { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.phases { display: grid; gap: 10px; }
+.phase { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; align-items: start; }
+.phase .badge { margin-top: 3px; }
+.phase ul { margin: 0; padding-inline-start: 18px; color: var(--ink); font-size: 0.92rem; }
+.phase .goal { font-weight: 700; }
+
+/* ---------- try: search + today ---------- */
+.search { position: relative; margin-bottom: 8px; }
+.search svg { position: absolute; inset-inline-start: 12px; top: 50%; translate: 0 -50%; width: 20px; height: 20px; color: var(--muted); }
+.search input {
+  width: 100%; min-height: 48px; padding: 10px 44px 10px 12px; border: 1px solid var(--line); border-radius: 14px;
+  background: var(--card); color: var(--ink); font: inherit;
+}
+.search input::placeholder { color: var(--muted); }
+.today { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 10px; scrollbar-width: none; }
+.today button {
+  flex: none; min-height: 40px; border: 1px solid var(--rose-line); background: var(--card); color: var(--ink);
+  border-radius: 999px; padding: 4px 12px; font-size: 0.85rem;
+}
+.today b { color: var(--accent-ink); }
+.chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 10px; scrollbar-width: thin; }
+.chip {
+  flex: none; min-height: 40px; border: 1px solid var(--rose-line); background: var(--rose); color: var(--accent-ink);
+  border-radius: 999px; padding: 4px 14px; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px;
+}
+.chip[aria-pressed="true"] { background: var(--crimson); border-color: var(--crimson); color: var(--on-bar); }
+.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: 0.55; }
+.chip.is-live .dot { background: var(--good); opacity: 1; }
+.chip[aria-pressed="true"].is-live .dot { background: var(--on-bar); }
+
+/* ---------- panels ---------- */
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+.card > header { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.list { display: grid; margin-top: 8px; }
+.item { display: grid; grid-template-columns: 1fr auto; gap: 0 10px; padding-block: 9px; border-top: 1px solid var(--line); }
+.item:first-child { border-top: 0; }
+.item .t { font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+.item .s { color: var(--muted); font-size: 0.85rem; grid-column: 1; min-width: 0; }
+.item .v { grid-row: 1 / span 2; grid-column: 2; align-self: center; text-align: left; font-variant-numeric: tabular-nums; font-weight: 700; }
+.pill { font-size: 0.75rem; padding: 1px 8px; border-radius: 999px; font-weight: 500; }
+.p-red { color: var(--bad); background: var(--bad-bg); }
+.p-yellow { color: var(--warn); background: var(--warn-bg); }
+.p-green { color: var(--good); background: var(--good-bg); }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-block: 8px; }
+.stat { background: var(--rose); border-radius: 12px; padding: 8px 10px; min-width: 0; }
+.stat b { display: block; font-size: 1.2rem; font-variant-numeric: tabular-nums; color: var(--accent-ink); }
+.stat span { font-size: 0.8rem; color: var(--muted); }
+.meter { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; margin-top: 4px; }
+.meter i { display: block; height: 100%; background: var(--good); border-radius: 99px; }
+.meter i.over { background: var(--bad); }
+.meter i.near { background: var(--warn); }
+.bars { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 6px; align-items: end; height: 120px; margin-top: 10px; }
+.bars div { display: grid; grid-template-rows: 1fr auto; height: 100%; gap: 4px; min-width: 0; }
+.bars i { align-self: end; display: block; background: var(--bar); border-radius: 6px 6px 2px 2px; }
+.bars i.now { background: var(--gold); }
+.bars span { font-size: 0.7rem; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+.btnrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.btn { min-height: 44px; border: 0; border-radius: 12px; padding: 8px 14px; background: var(--crimson); color: var(--on-bar); font-weight: 500; }
+.btn.ghost { background: var(--rose); color: var(--accent-ink); }
+.note { font-size: 0.85rem; color: var(--muted); border-top: 1px dashed var(--line); margin-top: 10px; padding-top: 8px; }
+.live-box { display: grid; gap: 6px; }
+.live-box ul { margin: 0; padding-inline-start: 18px; }
+
+/* ---------- bottom nav ---------- */
+.bottomnav {
+  position: fixed; inset: auto 0 0; z-index: 25; background: var(--card); border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px));
+}
+.bottomnav .in { max-width: 720px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); height: var(--nav-h); }
+.bottomnav button { border: 0; background: transparent; color: var(--muted); display: grid; place-items: center; align-content: center; gap: 2px; font-size: 0.85rem; }
+.bottomnav button svg { width: 24px; height: 24px; }
+.bottomnav button[aria-pressed="true"] { color: var(--accent-ink); font-weight: 700; }
+.bottomnav button[aria-pressed="true"] svg { color: var(--crimson); }
+:root[data-theme="dark"] .bottomnav button[aria-pressed="true"] svg { color: var(--accent-ink); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .bottomnav button[aria-pressed="true"] svg { color: var(--accent-ink); } }
+@media (prefers-reduced-motion: no-preference) { .chip, .modes button, .bottomnav button { transition: background .15s, color .15s; } }
+</style>
+</head>
+<body>
+<header class="appbar">
+  <div class="wrap">
+    <div class="mark" aria-hidden="true">ع</div>
+    <div class="titles">
+      <h1>صيدلية عسكر</h1>
+      <p>هيكل نظام الإدارة · مسودة للمراجعة</p>
+    </div>
+    <button id="gearBtn" class="icon-btn" type="button" aria-pressed="false" aria-label="الإعدادات" title="الإعدادات">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="modes" role="group" aria-label="طريقة العرض">
+    <button id="modeMap" type="button" aria-pressed="true">خريطة البرنامج</button>
+    <button id="modeTry" type="button" aria-pressed="false">جرّب الشاشات</button>
+  </div>
+
+  <main id="mapView"></main>
+
+  <main id="tryView" hidden>
+    <p class="banner">كل الأرقام والأسماء هنا أمثلة للتوضيح، مش داتا الصيدلية.</p>
+    <div class="search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <input id="q" type="search" autocomplete="off" placeholder="دوّر على صنف في المخزون… (جرّب: بنادول)" aria-label="دوّر على صنف في المخزون">
+    </div>
+    <div id="todayStrip" class="today" role="group" aria-label="محتاج منك النهارده"></div>
+    <div id="searchOut" hidden></div>
+    <div id="sectionArea">
+      <div id="chips" class="chips" role="group" aria-label="تبويبات القسم"></div>
+      <div id="panel"></div>
+    </div>
+  </main>
+</div>
+
+<nav class="bottomnav" id="bottomNav" aria-label="الأقسام" hidden>
+  <div class="in" id="navIn"></div>
+</nav>
+
+<script>
+'use strict';
+// ====================================================================================================
+// الهيكل كله في مكان واحد: الأقسام → التبويبات. الخريطة والشاشات الاتنين بيتبنوا من هنا.
+// status: live = شغال في البوت دلوقتي، p1/p2/p3 = المرحلة. src: من فين الداتا.
+// ====================================================================================================
+const PHASE = {
+  live: ['شغال دلوقتي', 'b-live'],
+  p1: ['المرحلة ١', 'b-p1'],
+  p2: ['المرحلة ٢', 'b-p2'],
+  p3: ['المرحلة ٣ · بقرار', 'b-p3']
+};
+const ICON = {
+  purchases: '<path d="M4 5h2l2 10h10l2-7H7M10 19a1 1 0 1 0 0 .01M17 19a1 1 0 1 0 0 .01" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>',
+  accounts: '<path d="M5 4h11l3 3v13H5zM9 9h6M9 13h6M9 17h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>',
+  sales: '<path d="M4 19h16M7 16V10M12 16V6M17 16v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>',
+  settings: '<circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  search: '<circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
+};
+
+const SECTIONS = [
+  {
+    id: 'top', label: 'فوق كل الشاشات', icon: 'search', mapOnly: true,
+    why: 'زي ما اخترت يوم 10 نوفمبر: البوت يفتح على البحث.',
+    tabs: [
+      { id: 'gs', label: 'بحث المخزون', status: 'live', src: 'فارمافلاي ← اللاب كل ساعتين', what: 'علب + وحدات، أقرب صلاحية، ومخازن الانتظار لوحدها.' },
+      { id: 'gw', label: 'بحث قوايم المخازن', status: 'live', src: 'قوايم المخازن', what: 'الصنف عند مين وبكام خصم.' },
+      { id: 'alt', label: 'البديل', status: 'p1', src: 'المادة الفعالة (989 مجموعة)', what: 'لو الصنف مش موجود: البدايل اللي عليها رصيد بنفس المادة والشكل.' },
+      { id: 'today', label: 'شريط «محتاج منك النهارده»', status: 'p1', src: 'جداول البوت', what: 'وارد جديد · فواتير مستنية · صلاحية قربت · طلبات الموقع. دوسة بتوديك للتبويب.' }
+    ]
+  },
+  {
+    id: 'purchases', label: 'المشتريات', icon: 'purchases',
+    why: 'أكبر شغل يومي: حوالي 40 رسالة وارد في اليوم من الموردين.',
+    tabs: [
+      { id: 'short', label: 'النواقص', status: 'live', src: 'فارمافلاي ← اللاب مرتين في اليوم', what: 'القايمة بالعربي والكمية، و«اتطلب النهارده من …».' },
+      { id: 'read', label: 'الوارد', status: 'live', src: 'الواتس (Tasker) أو بإيدك', what: 'قراية وارد الموردين ومطابقته بالنواقص، والرسالة جاهزة والإرسال بإيدك.' },
+      { id: 'translate', label: 'الترجمة', status: 'live', src: 'Gemini + مراجعتك', what: 'الاسم العربي للأصناف زي ما الموردين بيكتبوها.' },
+      { id: 'drafts', label: 'الطلبيات', status: 'live', src: 'اللاب (فارمافلاي + القوايم)', what: 'كل صنف عند المورد اللي خصمه أحسن، والكمية بإيدك.' },
+      { id: 'docs', label: 'الفواتير', status: 'live', next: 'p2', src: 'صور الواتس', what: 'دلوقتي: الصور بتتحفظ وتتدخل في فارمافلاي. المرحلة ٢: تتقري لسطور (كمية، بونص، خصم، صلاحية) وتنزل في حساب المورد.' },
+      { id: 'suppliers', label: 'قوايم المخازن', status: 'live', src: 'ملفات المخازن', what: 'قوايم 4 مخازن ومطابقتها بأصنافنا.' },
+      { id: 'stock', label: 'المخزون', status: 'live', src: 'فارمافلاي ← اللاب كل ساعتين', what: 'رصيد الصيدلية الفعلي.' },
+      { id: 'expiry', label: 'الصلاحية', status: 'p1', src: 'تشغيلات فارمافلاي', what: 'الأصناف اللي فاضلها أقل من 6 شهور، الأحمر الأول، ومين المورد عشان المرتجع.' },
+      { id: 'returns', label: 'المرتجعات', status: 'p2', src: 'جديد', what: 'مرتجع للمورد (صلاحية/تالف/غلط) لحد ما الإشعار يوصل ويتخصم من حسابه.' },
+      { id: 'count', label: 'الجرد', status: 'p3', src: 'جديد', what: 'جرد رف أو تصنيف من الموبايل، والفرق بيتسجل حركة.' }
+    ]
+  },
+  {
+    id: 'accounts', label: 'الحسابات', icon: 'accounts',
+    why: 'الشاشتين دول مكتوب عليهم «قريب» في البوت دلوقتي.',
+    tabs: [
+      { id: 'customers', label: 'العملاء', status: 'p1', next: 'p2', src: 'فارمافلاي ← اللاب', what: 'المرحلة ١: اللي عليهم فلوس وحد كل عميل. المرحلة ٢: الأدوية المزمنة وتذكير «علبتك قربت تخلص»، والتواصل الأسبوعي (أداة التواصل جوه البرنامج).' },
+      { id: 'vendors', label: 'الموردين', status: 'p1', next: 'p2', src: 'فارمافلاي + الفواتير', what: 'المرحلة ١: رصيد كل مورد. المرحلة ٢: كشف حساب (فواتير − إشعارات − تحصيل) وإيصالات التحصيل.' },
+      { id: 'expenses', label: 'المصروفات', status: 'p2', src: 'صور الإيصالات', what: 'ميه وكهربا وإيجار ومرتبات، من الصور اللي بتتحفظ دلوقتي «للمصروفات».' },
+      { id: 'cashday', label: 'قفل اليوم', status: 'p2', src: 'فارمافلاي + المصروفات', what: 'بيع اليوم كاش وغيره − المصروفات − التحصيل = اللي المفروض في الدرج.' }
+    ]
+  },
+  {
+    id: 'sales', label: 'المبيعات', icon: 'sales',
+    why: 'البيع لسه في فارمافلاي، والبرنامج بيقراه ويحلله.',
+    tabs: [
+      { id: 'storeorders', label: 'الموقع', status: 'live', src: 'موقع الصيدلية', what: 'طلبات الموقع (الدفع عند الاستلام) والروشتات والإعدادات.' },
+      { id: 'salesmove', label: 'حركة البيع', status: 'p1', src: 'فارمافلاي ← اللاب كل ساعتين', what: 'بيع النهارده بالساعة، وأكتر الأصناف، ومقارنة بنفس اليوم الأسبوع اللي فات.' },
+      { id: 'reports', label: 'التقارير', status: 'p2', src: 'البيع + الشرا', what: 'الراكد (رصيد من غير بيع)، الربح التقريبي، الخصم اللي اتكسب.' },
+      { id: 'delivery', label: 'التوصيل', status: 'p2', src: 'الموقع + التليفون', what: 'الطلب مع مين، خرج ولا وصل، والتحصيل.' },
+      { id: 'pos', label: 'الكاشير', status: 'p3', src: 'جديد', what: 'بيع بالباركود والعلبة والشريط. بيتجرب جنب فارمافلاي شهر قبل أي قرار.' }
+    ]
+  },
+  {
+    id: 'settings', label: 'الإعدادات', icon: 'settings', viaGear: true,
+    why: 'من الترس اللي فوق.',
+    tabs: [
+      { id: 'staff', label: 'الموظفين والصلاحيات', status: 'p2', src: 'جديد', what: 'دلوقتي كل حاجة بحسابك بس. بعدين: صيدلي، مساعد، توصيل، وكل واحد يشوف شغله.' },
+      { id: 'voices', label: 'الأصوات', status: 'p1', src: 'متخطط في البوت', what: 'مفتاح لكل نوع كلام الموبايل بيقوله.' },
+      { id: 'devices', label: 'الأجهزة', status: 'live', src: 'البوت', what: 'مفتاح اللاب ومفتاح موبايل الواتس، وتنبيه «اللاب وقف».' },
+      { id: 'audit', label: 'سجل التعديلات', status: 'p2', src: 'جديد', what: 'مين غيّر فلوس أو رصيد وإمتى.' }
+    ]
+  }
+];
+
+const PHASES = [
+  { k: 'p1', goal: 'شاشة واحدة لكل حاجة (قراية من فارمافلاي)', items: ['حركة البيع، العملاء اللي عليهم فلوس، رصيد الموردين: اللاب يبعتهم زي المخزون.', 'الصلاحية، والبديل، وشريط «محتاج منك النهارده».', 'مفيش أي كتابة في فارمافلاي.'] },
+  { k: 'p2', goal: 'الحسابات بتاعتنا', items: ['الفواتير تتقري لسطور وتنزل في حساب المورد، والمرتجعات والتحصيل.', 'المصروفات وقفل اليوم.', 'العملاء: الأدوية المزمنة والتذكير، وأداة التواصل جوه البرنامج.', 'الموظفين والصلاحيات.'] },
+  { k: 'p3', goal: 'الكاشير (بقرارك بعد المرحلة ٢)', items: ['بيع وفواتير ومرتجع ووردية.', 'شهر جنب فارمافلاي ومقارنة كل يوم.', 'التبديل بس لو الأرقام اتطابقت.'] }
+];
+
+// ---------- أمثلة للشاشات الجديدة (مش داتا حقيقية) ----------
+const SAMPLE_STOCK = [
+  { n: 'PANADOL EXTRA 24 TAB', a: 'بنادول اكسترا', q: '6 علب + 1 شريط', e: '09/2027', g: 'paracetamol' },
+  { n: 'PANADOL ADVANCE 24 TAB', a: 'بنادول ادفانس', q: 'مفيش', e: '', g: 'paracetamol', alt: ['ABIMOL 500MG 20 TAB · 9 علب', 'CETAL 500MG 20 TAB · 4 علب'] },
+  { n: 'AUGMENTIN 1G 14 TAB', a: 'اوجمنتين 1 جم', q: '3 علب', e: '02/2027', g: 'amoxicillin+clavulanic' },
+  { n: 'CONCOR 5MG 30 TAB', a: 'كونكور 5', q: '11 علبة + 2 شريط', e: '05/2028', g: 'bisoprolol' },
+  { n: 'OMEZ 20MG 14 CAP', a: 'اوميز 20', q: '1 علبة · + 2 علبة في مخزن انتظار', e: '12/2026', g: 'omeprazole' }
+];
+
+const PANELS = {
+  expiry: () => card('الصلاحية', 'p1', `
+    <div class="stats">${stat(7, 'أقل من شهر')}${stat(23, 'من 1 لـ 3 شهور')}${stat(41, 'من 3 لـ 6 شهور')}</div>
+    <div class="list">
+      ${item('OMEZ 20MG 14 CAP', 'صلاحية 12/2026 · من مخزن AMG', '<span class="pill p-red">21 يوم</span>')}
+      ${item('FLUMOX 500MG 16 CAP', 'صلاحية 01/2027 · من رضا عطية', '<span class="pill p-red">52 يوم</span>')}
+      ${item('VITACID C 1000 EFF', 'صلاحية 03/2027 · من نيو سيتي', '<span class="pill p-yellow">4 شهور</span>')}
+    </div>
+    <div class="btnrow"><button class="btn" type="button">جهّز مرتجع للمورد</button><button class="btn ghost" type="button">ابعت للموقع بخصم</button></div>
+    <p class="note">من ar_stock دلوقتي (أقرب صلاحية بس). المرحلة ١: كل تشغيلة لوحدها من فارمافلاي.</p>`),
+  returns: () => card('المرتجعات', 'p2', `
+    <div class="list">
+      ${item('مرتجع AMG · 4 أصناف', 'سبب: صلاحية · اتبعت 08/11', '<span class="pill p-yellow">مستني الإشعار</span>')}
+      ${item('مرتجع فارما · صنف واحد', 'سبب: تالف · 02/11', '<span class="pill p-green">اتخصم 315</span>')}
+    </div>
+    <p class="note">الإشعار لما يوصل صورة على الواتس بيتربط بالمرتجع، وبيتخصم من حساب المورد.</p>`),
+  count: () => card('الجرد', 'p3', `
+    <p class="hint">اختار رف أو تصنيف، عدّ، والبرنامج يقارن بالرصيد.</p>
+    <div class="list">
+      ${item('رف المسكنات · 38 صنف', 'اتعدّ 31 · فرق في 2', '<span class="pill p-yellow">شغال</span>')}
+    </div>`),
+  customers: () => card('العملاء', 'p1', `
+    <div class="stats">${stat(64, 'عليهم فلوس')}${stat('18,450', 'المجموع')}${stat(5, 'عدّوا الحد')}</div>
+    <div class="list">
+      ${due('الحاج سيد · المنيل', 2350, 2000)}
+      ${due('مدام هالة · 0100 xxx xx 12', 1180, 1500)}
+      ${due('أ. محمود · شقة 4', 640, 1000)}
+    </div>
+    <div class="btnrow"><button class="btn" type="button">كشف حساب</button><button class="btn ghost" type="button">رسالة تذكير (تبعتها بإيدك)</button></div>
+    <p class="note">المرحلة ٢: «أدويته المزمنة» لكل عميل، وتذكير قبل ما العلبة تخلص، والتواصل الأسبوعي (7 مجموعات زي أداة التواصل).</p>`),
+  vendors: () => card('الموردين', 'p1', `
+    <div class="list">
+      ${item('ابن سينا', 'آخر فاتورة 10/11 · آخر تحصيل 03/11', num('42,300'))}
+      ${item('فارما', 'آخر فاتورة 11/11 · مرتجع مستني', num('27,950'))}
+      ${item('مخزن AMG', 'آخر فاتورة 09/11', num('8,120'))}
+      ${item('مخزن نيو سيتي', 'مفيش فواتير مفتوحة', num('0'))}
+    </div>
+    <p class="note">كشف الحساب = الفواتير − الإشعارات − التحصيل. ودوسة على المورد بتفتح فواتيره وصورها.</p>`),
+  expenses: () => card('المصروفات', 'p2', `
+    <div class="list">
+      ${item('كهربا', 'صورة الإيصال من الواتس · 05/11', num('1,840'))}
+      ${item('مرتبات', 'نوفمبر', num('—'))}
+      ${item('ميه', '02/11', num('210'))}
+    </div>`),
+  cashday: () => card('قفل اليوم', 'p2', `
+    <div class="list">
+      ${item('بيع كاش', 'من فارمافلاي', num('14,620'))}
+      ${item('بيع فيزا ومحافظ', 'من فارمافلاي', num('3,105'))}
+      ${item('مصروفات', '', num('− 210'))}
+      ${item('تحصيل موردين', 'ابن سينا', num('− 5,000'))}
+      ${item('المفروض في الدرج', '', num('9,410'))}
+    </div>
+    <div class="btnrow"><button class="btn" type="button">اكتب اللي في الدرج</button></div>`),
+  salesmove: () => card('حركة البيع', 'p1', `
+    <div class="stats">${stat('17,725', 'بيع النهارده')}${stat(312, 'فاتورة')}${stat('+8%', 'عن الأسبوع اللي فات')}</div>
+    ${bars([['9', 18], ['11', 42], ['1', 55], ['3', 38], ['5', 47], ['7', 76], ['9', 100], ['11', 64], ['1', 22]], 6)}
+    <div class="list">
+      ${item('PANADOL EXTRA 24 TAB', '31 مرة', num('1,705'))}
+      ${item('CONCOR 5MG 30 TAB', '12 مرة', num('1,140'))}
+    </div>
+    <p class="note">بيتحدّث كل ساعتين مع المخزون (زي ما مكتوب في البوت). الساعات من 9 الصبح لـ 2 بالليل.</p>`),
+  reports: () => card('التقارير', 'p2', `
+    <div class="list">
+      ${item('الراكد', 'رصيد من غير بيع 90 يوم', '<span class="pill p-yellow">143 صنف</span>')}
+      ${item('الخصم اللي اتكسب', 'من الطلبيات حسب أحسن عرض', num('2.1 نقطة'))}
+      ${item('الربح التقريبي', 'سعر البيع − تكلفة آخر شرا', num('—'))}
+    </div>`),
+  delivery: () => card('التوصيل', 'p2', `
+    <div class="list">
+      ${item('طلب موقع #24 · المنيل', 'مع كريم · خرج 7:40', '<span class="pill p-yellow">في الطريق</span>')}
+      ${item('تليفون · مدام هالة', '2 صنف · 285', '<span class="pill p-green">وصل واتحصّل</span>')}
+    </div>`),
+  pos: () => card('الكاشير', 'p3', `
+    <div class="list">
+      ${item('AUGMENTIN 1G 14 TAB', '1 علبة', num('118.00'))}
+      ${item('CONCOR 5MG 30 TAB', '1 شريط من 3', num('31.67'))}
+      ${item('الإجمالي', 'كاش', num('149.67'))}
+    </div>
+    <p class="note">الشريط بيتباع بسعر العلبة ÷ عدد الشرايط. ولازم يشتغل والنت واقف، فده محتاج قرار تقني لوحده.</p>`),
+  staff: () => card('الموظفين والصلاحيات', 'p2', `
+    <div class="list">
+      ${item('د. طاهر', 'المالك · كل حاجة', '<span class="pill p-green">شغال</span>')}
+      ${item('صيدلي', 'بيع ومخزون ونواقص وعملاء', '<span class="pill p-yellow">مستني قرارك</span>')}
+      ${item('مساعد', 'بيع وبحث رصيد', '<span class="pill p-yellow">مستني قرارك</span>')}
+      ${item('توصيل', 'طلباته بس', '<span class="pill p-yellow">مستني قرارك</span>')}
+    </div>`),
+  voices: () => card('الأصوات', 'p1', `
+    <div class="list">
+      ${item('وارد مورد فيه نواقص', '«رضا عطية: عنده 3 من النواقص»', '<span class="pill p-green">شغال</span>')}
+      ${item('النواقص اتحدثت', '', '<span class="pill p-green">شغال</span>')}
+      ${item('المخزون والموقع اتحدثوا', '', '<span class="pill p-yellow">مقفول</span>')}
+      ${item('طلب جديد من الموقع', '', '<span class="pill p-green">شغال</span>')}
+    </div>`),
+  audit: () => card('سجل التعديلات', 'p2', `
+    <div class="list">
+      ${item('فاتورة ابن سينا #5521', 'اتعدّل الإجمالي · د. طاهر · 10/11 4:12 م', '')}
+      ${item('دفعة لفارما 5,000', 'اتضافت · د. طاهر · 09/11 1:30 م', '')}
+    </div>`)
+};
+
+// ---------- أدوات رسم صغيرة ----------
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const badge = (k) => `<span class="badge ${PHASE[k][1]}">${PHASE[k][0]}</span>`;
+const stat = (v, l) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`;
+const num = (v) => `<span class="num">${v}</span>`;
+const item = (t, s, v) => `<div class="item"><span class="t">${t}</span>${s ? `<span class="s">${s}</span>` : ''}<span class="v">${v}</span></div>`;
+const card = (title, phase, body) => `<section class="card"><header><h2>${title}</h2>${badge(phase)}</header>${body}</section>`;
+function due(name, owe, limit) {
+  const pct = Math.min(100, Math.round((owe / limit) * 100));
+  const cls = owe > limit ? 'over' : pct >= 80 ? 'near' : '';
+  const tag = owe > limit ? `<span class="pill p-red">عدّى الحد</span>` : '';
+  return `<div class="item"><span class="t">${name} ${tag}</span><span class="s">الحد ${limit.toLocaleString('en-US')}<span class="meter" aria-hidden="true"><i class="${cls}" style="width:${pct}%"></i></span></span><span class="v">${owe.toLocaleString('en-US')}</span></div>`;
+}
+function bars(rows, nowIndex) {
+  return `<div class="bars" role="img" aria-label="البيع بالساعة النهارده (مثال)">${rows.map(([h, v], i) => `<div><i class="${i === nowIndex ? 'now' : ''}" style="height:${v}%"></i><span>${h}</span></div>`).join('')}</div>`;
+}
+
+// ---------- الخريطة ----------
+function drawMap() {
+  const legend = Object.keys(PHASE).map(badge).join('');
+  const counts = { live: 0, p1: 0, p2: 0, p3: 0 };
+  SECTIONS.forEach((s) => s.tabs.forEach((t) => counts[t.status]++));
+  let html = `<div class="lead">
+      <p>البرنامج هو <b>البوت نفسه وهو بيكبر</b>: نفس الدخول ونفس البحث فوق ونفس الـ 3 أقسام اللي اخترتهم. فارمافلاي يفضل الكاشير والأساس، واللاب بينقل منه.</p>
+      <p class="hint">${counts.live} شاشة شغالة دلوقتي · ${counts.p1} في المرحلة ١ · ${counts.p2} في المرحلة ٢ · ${counts.p3} في المرحلة ٣.</p>
+      <div class="legend">${legend}</div>
+    </div>`;
+  SECTIONS.forEach((s) => {
+    html += `<section class="section" aria-labelledby="sec-${s.id}"><header><svg viewBox="0 0 24 24" aria-hidden="true">${ICON[s.icon]}</svg><div><h2 id="sec-${s.id}">${s.label}</h2><p class="why">${s.why}</p></div></header><div class="rows">`;
+    s.tabs.forEach((t) => {
+      html += `<div class="row"><span class="name">${t.label}</span><span class="tags">${badge(t.status)}${t.next ? badge(t.next) : ''}</span><p class="what">${t.what} <span class="src">· ${t.src}</span></p></div>`;
+    });
+    html += '</div></section>';
+  });
+  html += `<section class="section"><header><div><h2>المراحل</h2><p class="why">كل مرحلة بتتجرب وتتراجع قبل اللي بعدها.</p></div></header><div class="phases">`;
+  PHASES.forEach((p) => {
+    html += `<div class="phase">${badge(p.k)}<div><p class="goal">${p.goal}</p><ul>${p.items.map((x) => `<li>${x}</li>`).join('')}</ul></div></div>`;
+  });
+  html += '</div></section>';
+  document.getElementById('mapView').innerHTML = html;
+}
+
+// ---------- جرّب الشاشات ----------
+const state = { section: 'purchases', tab: { purchases: 'short', accounts: 'customers', sales: 'storeorders', settings: 'staff' } };
+
+function drawNav() {
+  const nav = SECTIONS.filter((s) => !s.mapOnly && !s.viaGear);
+  document.getElementById('navIn').innerHTML = nav
+    .map((s) => `<button type="button" data-sec="${s.id}" aria-pressed="${state.section === s.id}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICON[s.icon]}</svg><span>${s.label}</span></button>`)
+    .join('');
+  document.getElementById('gearBtn').setAttribute('aria-pressed', String(state.section === 'settings'));
+}
+
+function drawToday() {
+  const chips = [
+    ['وارد جديد', 3, 'purchases', 'read'],
+    ['فواتير مستنية', 2, 'purchases', 'docs'],
+    ['صلاحية قربت', 7, 'purchases', 'expiry'],
+    ['طلبات الموقع', 1, 'sales', 'storeorders']
+  ];
+  document.getElementById('todayStrip').innerHTML = chips
+    .map(([l, n, s, t]) => `<button type="button" data-go="${s}:${t}">${l} <b class="num">${n}</b></button>`)
+    .join('');
+}
+
+function drawSection() {
+  const sec = SECTIONS.find((s) => s.id === state.section);
+  const current = state.tab[sec.id];
+  document.getElementById('chips').innerHTML = sec.tabs
+    .map((t) => `<button type="button" class="chip${t.status === 'live' ? ' is-live' : ''}" data-tab="${t.id}" aria-pressed="${t.id === current}"><span class="dot" aria-hidden="true"></span>${t.label}</button>`)
+    .join('');
+  const tab = sec.tabs.find((t) => t.id === current);
+  let html;
+  if (PANELS[tab.id]) html = PANELS[tab.id]();
+  else {
+    html = card(tab.label, tab.status, `<div class="live-box"><p>${tab.what}</p><p class="hint">الداتا: ${tab.src}</p>
+      <p class="note">الشاشة دي موجودة في البوت دلوقتي وبتفضل زي ما هي. الهيكل هنا بيوريك مكانها بس.${tab.next ? ' والتطوير الجاي عليها في ' + PHASE[tab.next][0] + '.' : ''}</p></div>`);
+  }
+  document.getElementById('panel').innerHTML = html;
+}
+
+function drawSearch() {
+  const q = document.getElementById('q').value.trim();
+  const out = document.getElementById('searchOut');
+  const area = document.getElementById('sectionArea');
+  if (!q) { out.hidden = true; area.hidden = false; return; }
+  const k = q.replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').toLowerCase();
+  const hits = SAMPLE_STOCK.filter((x) => (x.n + ' ' + x.a.replace(/[أإآ]/g, 'ا')).toLowerCase().includes(k));
+  out.innerHTML = card('نتيجة البحث', 'live', hits.length
+    ? `<div class="list">${hits.map((x) => item(esc(x.n), esc(x.a + (x.e ? ' · أقرب صلاحية ' + x.e : '')) + (x.alt ? `<br><span class="badge b-p1">البديل · المرحلة ١</span> ${x.alt.map(esc).join(' · ')}` : ''), x.q === 'مفيش' ? '<span class="pill p-red">مفيش</span>' : `<span class="num">${esc(x.q)}</span>`)).join('')}</div>`
+    : `<p class="hint">مفيش صنف في الأمثلة بالاسم ده. جرّب «بنادول» أو «كونكور».</p>`);
+  out.hidden = false;
+  area.hidden = true;
+}
+
+function setMode(mode) {
+  const isTry = mode === 'try';
+  document.getElementById('mapView').hidden = isTry;
+  document.getElementById('tryView').hidden = !isTry;
+  document.getElementById('bottomNav').hidden = !isTry;
+  document.body.classList.toggle('try', isTry);
+  document.getElementById('modeMap').setAttribute('aria-pressed', String(!isTry));
+  document.getElementById('modeTry').setAttribute('aria-pressed', String(isTry));
+  if (isTry) { drawNav(); drawSection(); }
+  try { localStorage.setItem('asker-ph-mode', mode); } catch (e) { /* التخزين مقفول: عادي */ }
+}
+
+function go(section, tab) {
+  state.section = section;
+  if (tab) state.tab[section] = tab;
+  document.getElementById('q').value = '';
+  drawSearch();
+  drawNav();
+  drawSection();
+  window.scrollTo({ top: 0 });
+}
+
+document.getElementById('modeMap').addEventListener('click', () => setMode('map'));
+document.getElementById('modeTry').addEventListener('click', () => setMode('try'));
+document.getElementById('gearBtn').addEventListener('click', () => {
+  setMode('try');
+  go(state.section === 'settings' ? 'purchases' : 'settings');
+});
+document.getElementById('navIn').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-sec]');
+  if (b) go(b.dataset.sec);
+});
+document.getElementById('chips').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-tab]');
+  if (!b) return;
+  state.tab[state.section] = b.dataset.tab;
+  drawSection();
+});
+document.getElementById('todayStrip').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-go]');
+  if (!b) return;
+  const [s, t] = b.dataset.go.split(':');
+  go(s, t);
+});
+document.getElementById('q').addEventListener('input', drawSearch);
+
+drawMap();
+drawToday();
+let startMode = 'map';
+try { startMode = localStorage.getItem('asker-ph-mode') === 'try' ? 'try' : 'map'; } catch (e) { /* عادي */ }
+setMode(startMode);
+</script>
+</body>
+</html>
