@@ -12,7 +12,7 @@ export default async function settings({ el, api, state, can }) {
   render(el, h`
     <div class="head"><div><h1>الإعدادات والتجربة</h1><p>كل حاجة بتتقاس: سلامة القاعدة، المشاكل اللي اتسجلت، ومين بيدخل بإيه.</p></div></div>
     <section class="grid g2">
-      <div class="card"><header><div><h2>سلامة القاعدة</h2><span class="sub">10 قواعد لازم تفضل صح مهما حصل</span></div><button class="btn sm quiet" id="hc" data-hot="alt+h">${icon('refresh')} افحص <kbd>Alt+H</kbd></button></header><div class="list" id="health">${skeleton(5)}</div></div>
+      <div class="card"><header><div><h2>سلامة القاعدة</h2><span class="sub" id="hsub">10 قواعد لازم تفضل صح مهما حصل</span></div><button class="btn sm quiet" id="hc" data-hot="alt+h">${icon('refresh')} افحص <kbd>Alt+H</kbd></button></header><div class="list" id="health">${skeleton(5)}</div></div>
       <div class="card"><header><div><h2>ملاحظات التجربة</h2><span class="sub">اللي اتسجل من الشاشات أو من المحادثة</span></div><span id="ncount"></span></header><div class="list" id="notes">${skeleton(5)}</div></div>
     </section>
     ${owner ? h`<section class="card" style="margin-top:16px"><header><div><h2>الموظفين والصلاحيات</h2><span class="sub">كل واحد بيشوف ويعمل اللي دوره يسمح بيه بس (من القاعدة نفسها)</span></div><button class="btn sm" id="add" data-hot="alt+a">${icon('plus')} موظف جديد <kbd style="background:transparent;color:var(--on-c-2)">Alt+A</kbd></button></header><div id="staff">${skeleton(4)}</div></section>` : ''}
@@ -23,12 +23,25 @@ export default async function settings({ el, api, state, can }) {
       <div class="card"><header><div><h2>النقل من فارمافلاي</h2><span class="sub">التاريخ من 2018 بأرقامه وتواريخه الأصلية</span></div></header><div id="imp">${skeleton(4)}</div></div>
     </section>`);
 
+  function drawHealth(rows, at) {
+    const box = $('#health', el);
+    const sub = $('#hsub', el);
+    if (sub) sub.textContent = at ? 'آخر فحص ' + ago(at) : 'لسه ماتفحصتش — دوس «افحص»';
+    if (!rows || !rows.length) { render(box, empty('لسه ماتفحصتش', 'الفحص بيقرا كل الدفاتر، فبياخد شوية ثواني على سنين الداتا. دوس «افحص».')); return; }
+    render(box, h`${rows.map((r) => h`<div class="li"><span class="ico ${r.ok ? 'i-good' : 'i-bad'}">${icon(r.ok ? 'check' : 'alert')}</span><div class="grow"><b>${r.check_name}</b>${!r.ok && r.detail ? h`<span class="muted" style="font-size:13px">${r.detail}</span>` : ''}</div><span class="pill ${r.ok ? 'p-good' : 'p-bad'}">${r.ok ? 'سليم' : 'مشكلة'}</span></div>`)}`);
+  }
+  // على التحميل: آخر نتيجة محفوظة على طول (مش بتعيد فحص كل الدفاتر)
   async function health() {
-    const box = $('#health', el); render(box, skeleton(5));
-    try {
-      const rows = await api.rpc('health_check');
-      render(box, h`${rows.map((r) => h`<div class="li"><span class="ico ${r.ok ? 'i-good' : 'i-bad'}">${icon(r.ok ? 'check' : 'alert')}</span><div class="grow"><b>${r.check_name}</b>${!r.ok && r.detail ? h`<span class="muted" style="font-size:13px">${r.detail}</span>` : ''}</div><span class="pill ${r.ok ? 'p-good' : 'p-bad'}">${r.ok ? 'سليم' : 'مشكلة'}</span></div>`)}`);
-    } catch (e) { render(box, errorBox(e)); }
+    render($('#health', el), skeleton(5));
+    try { const rows = await api.rpc('health_last'); drawHealth(rows, rows[0] && rows[0].checked_at); }
+    catch (e) { render($('#health', el), errorBox(e)); }
+  }
+  // «افحص»: الفحص الكامل في الخلفية وبيتحفظ (بياخد ثواني على سنين الداتا)
+  async function healthRun() {
+    const btn = $('#hc', el); const old = btn.innerHTML; btn.disabled = true; btn.innerHTML = String(h`${icon('refresh')} بيفحص…`);
+    try { const rows = await api.rpc('health_run'); drawHealth(rows, rows[0] && rows[0].checked_at); toast('اتفحصت ✓', 'good'); }
+    catch (e) { toast(e.message, 'bad'); }
+    finally { btn.disabled = false; btn.innerHTML = old; }
   }
   async function notes() {
     const box = $('#notes', el);
@@ -50,7 +63,7 @@ export default async function settings({ el, api, state, can }) {
       catch (er) { toast(er.message, 'bad'); }
     });
   });
-  $('#hc', el).addEventListener('click', health);
+  $('#hc', el).addEventListener('click', healthRun);
 
   async function staff() {
     const box = $('#staff', el); if (!box) return;

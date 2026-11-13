@@ -2,12 +2,9 @@
 import { h, render, icon, money, moneyR, int, pct, qty, time, ago, skeleton, errorBox, $, inDays } from '../ui.js';
 import { barLine, spark } from '../charts.js';
 
-// فحص السلامة بيقرا الدفاتر كلها (تقيل على سنين داتا): مرة كل ربع ساعة، والباقي من النسخة المحفوظة
+// فحص السلامة بيقرا الدفاتر كلها (تقيل على سنين داتا): اللوحة بتعرض آخر نتيجة محفوظة على طول، والفحص الكامل من الإعدادات
 async function cachedHealth(api) {
-  try { const c = JSON.parse(sessionStorage.getItem('asker.health') || 'null'); if (c && Date.now() - c.at < 15 * 60e3) return c.rows; } catch (e) {}
-  const rows = await api.rpc('health_check').catch(() => null);
-  if (rows) try { sessionStorage.setItem('asker.health', JSON.stringify({ at: Date.now(), rows })); } catch (e) {}
-  return rows;
+  return api.rpc('health_last').catch(() => null);
 }
 const hello = () => { const hr = new Date().getHours(); return hr < 12 ? 'صباح الخير' : hr < 18 ? 'نهارك سعيد' : 'مساء الخير'; };
 
@@ -84,11 +81,13 @@ export default async function dashboard({ el, api, state, can }) {
       { n: d.open_notes, t: 'ملاحظة تجربة مفتوحة', href: '#/settings', ic: 'note', tone: 'i-info', show: can(['owner', 'manager']) },
     ].filter((x) => x.show).slice(0, 6);
     render($('#todo', el), h`${todo.map((x) => h`<a href="${x.href}" data-row><span class="ico ${x.tone}">${icon(x.ic)}</span><div><b>${int(x.n)}</b><span>${x.t}</span></div></a>`)}`);
-    if (health) {
+    if (health && health.length) {
       const bad = health.filter((c) => !c.ok);
       render($('#health', el), bad.length
         ? h`<a class="pill p-bad" href="#/settings">${bad.length} فحص فيه مشكلة</a>`
         : h`<span class="pill p-good" title="${health.map((c) => c.check_name).join(' · ')}">${icon('shield')} القاعدة سليمة ${health.length}/${health.length}</span>`);
+    } else if (health) {
+      render($('#health', el), h`<a class="pill p-muted" href="#/settings">القاعدة لسه ماتفحصتش — من الإعدادات</a>`);
     }
 
     // البيع بالساعة: يوم الصيدلية من 6 الصبح لـ 6 الصبح

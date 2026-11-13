@@ -437,6 +437,8 @@ select ph.mark_ordered(jsonb_build_object('supplier_id', (select id from ph.supp
 insert into ph.trial_notes (area, severity, note) values
   ('sales', 'idea', 'زرار «آخر فاتورة» في الكاشير عشان نطبعها تاني بسرعة'),
   ('stock', 'annoyance', 'عايز أشوف مكان الصنف على الرف في البحث');
+-- فحص أول مرة متحفوظ: اللوحة والإعدادات بيعرضوه على طول (من غير ما يعيدوا فحص كل الدفاتر)
+select count(*) from ph.health_run();
 select set_config('request.jwt.claim.sub', '', false);
 select (select count(*) from ph.sales) as sales, (select count(*) from ph.sales where business_day = ph.business_day()) as sales_today,
        (select count(*) from ph.health_check() where not ok) as health_failures;
