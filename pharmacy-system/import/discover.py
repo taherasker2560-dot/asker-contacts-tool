@@ -13,10 +13,18 @@ import pymssql
 
 
 def connect(work):
-    env = dict(line.strip().split('=', 1) for line in open(os.path.join(work, 'mssql.env')) if '=' in line)
+    """SQL Server بتاع restore.sh (Docker)، أو أي SQL Server عليه نسخة فارمافلاي (زي اللي الهَب بيرجّعها على اللاب):
+    MSSQL_HOST / MSSQL_PORT / MSSQL_USER / MSSQL_PASSWORD / MSSQL_DB."""
+    password = os.environ.get('MSSQL_PASSWORD')
+    env_file = os.path.join(work, 'mssql.env')
+    if password is None and os.path.exists(env_file):
+        env = dict(line.strip().split('=', 1) for line in open(env_file) if '=' in line)
+        password = env.get('MSSQL_SA_PASSWORD')
+    if password is None:
+        sys.exit('مفيش كلمة سر: شغّل restore.sh الأول، أو اكتب MSSQL_USER و MSSQL_PASSWORD و MSSQL_DB')
     return pymssql.connect(server=os.environ.get('MSSQL_HOST', '127.0.0.1'), port=int(os.environ.get('MSSQL_PORT', '1433')),
-                           user='sa', password=env['MSSQL_SA_PASSWORD'], database=os.environ.get('MSSQL_DB', 'pf'),
-                           charset='UTF-8', login_timeout=30)
+                           user=os.environ.get('MSSQL_USER', 'sa'), password=password,
+                           database=os.environ.get('MSSQL_DB', 'pf'), charset='UTF-8', login_timeout=30)
 
 
 DATE_TYPES = {'date', 'datetime', 'datetime2', 'smalldatetime', 'datetimeoffset'}
