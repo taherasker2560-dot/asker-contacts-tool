@@ -27,3 +27,4 @@ if ($before -eq $after) { Say "مفيش كود جديد" } else { Say "اللي 
 Invoke-Migrations "asker"
 Say "لو التحديث ده ماعجبكش: rollback-trial.ps1 -Commit $before"
 & (Join-Path $PSScriptRoot "check-trial.ps1") -Root $Root -PgPort $PgPort -BackupDir $BackupDir
+& (Join-Path $PSScriptRoot "desktop-icon.ps1") -Root $Root   # الأيقونة (لو اتمسحت أو أول مرة)

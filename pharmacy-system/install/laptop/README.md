@@ -12,7 +12,7 @@
 |---|---|---|
 | 1 | هات آخر نسخة من الفرع `ccr-7fcc0f51-5mtsr9` | `git pull` |
 | 2 | التسطيب (مرة واحدة). بينزّل البرامج ويطبع بصمة كل ملف، وبيسألك على كلمة سر المالك | `powershell -ExecutionPolicy Bypass -File pharmacy-system\install\laptop\setup-trial.ps1` |
-| 3 | التشغيل | `…\start-trial.ps1` ← `http://127.0.0.1:8080` |
+| 3 | التشغيل | دوس على أيقونة **«صيدلية عسكر»** على سطح المكتب أو `Ctrl+Alt+A` (أو `…\start-trial.ps1` ← `http://127.0.0.1:8080`) |
 | 4 | خريطة جداول فارمافلاي من القاعدة اللي الهَب مرجّعها | `pharmacy-system\import\discover.py` بـ `MSSQL_HOST` و`MSSQL_USER` و`MSSQL_PASSWORD` و`MSSQL_DB` |
 | 5 | ملف الربط (`import\pharmafly-to-stage.sql`) حسب `import\MAPPING.md` والخريطة | بيتكتب مرة واحدة |
 | 6 | النقل: نسخ الجداول ← الربط ← النقل بالتاريخ | `copy.py` بـ `PGURL=postgresql://postgres:<secrets\postgres.txt>@127.0.0.1:5433/asker` ثم `psql -f pharmafly-to-stage.sql` ثم `select ph.import_history('…');` |
@@ -41,6 +41,15 @@ conf\       إعدادات PostgREST
 logs\       لو حاجة ماقامتش
 downloads\  الملفات اللي اتنزلت
 ```
+
+## أيقونة على سطح المكتب
+`setup-trial.ps1` و`update-trial.ps1` بيعملوا أيقونة **«صيدلية عسكر»** على سطح المكتب وفي قايمة Start (أو شغّل `desktop-icon.ps1` لوحده):
+- **دوسة واحدة:** لو البرنامج مش شغال بيشغّله، وبعدين بيفتحه **في نافذة لوحده** (Edge، ولو مش موجود Chrome) من غير شريط عنوان ولا تابات. كده المتصفح مش بياخد أي مفتاح قبل البرنامج، فاختصارات زي `F10` و`F5` بتروح للبرنامج.
+- **`Ctrl+Alt+A`** من أي مكان في الويندوز بيفتح البرنامج (من غير ماوس برضه).
+- النافذة ليها بروفايل لوحدها في `D:\AskerTrial\browser`: الجلسة والفواتير اللي مستنية الشبكة تبع البرنامج بس، ومفيش إضافات متصفح بتلعب في المفاتيح.
+- لو البرنامج ماقامش بتطلع رسالة فيها السبب ومكان الـ logs.
+- `desktop-icon.ps1 -Remove` بيشيل الأيقونات. `-Hotkey "CTRL+ALT+P"` لو عايز اختصار تاني.
+- **لم يُختبر على ويندوز لسه.**
 
 ## لو حاجة وقعت
 - PostgreSQL ماقامش: `logs\postgres.log` (غالبًا البورت 5433 مشغول ← `-PgPort` غيره في التلات سكريبتات).

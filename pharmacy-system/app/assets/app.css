@@ -340,3 +340,5 @@ tr.kb-sel td { background: color-mix(in srgb, var(--gold-100) 55%, transparent) 
   body.printing-sheet .receipt { display: none; }
 }
 @media (max-width: 860px) { .kb-help, .nav-k { display: none !important; } }
+/* الموبايل: صفوف القوايم بتنزل سطر لو الزراير كتير (مفيش سكرول جانبي) */
+@media (max-width: 640px) { .li { flex-wrap: wrap; row-gap: 6px; } .li .grow { flex: 1 1 55%; } }

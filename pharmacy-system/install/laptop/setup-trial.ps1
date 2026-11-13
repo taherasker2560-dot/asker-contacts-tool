@@ -96,4 +96,5 @@ server-host = "127.0.0.1"
 server-port = $ApiPort
 "@
 }
-Say "التسطيب خلص. شغّل start-trial.ps1"
+& (Join-Path $PSScriptRoot "desktop-icon.ps1") -Root $Root
+Say "التسطيب خلص. دوس على أيقونة «صيدلية عسكر» على سطح المكتب (أو Ctrl+Alt+A)"

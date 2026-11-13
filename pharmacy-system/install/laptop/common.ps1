@@ -67,3 +67,20 @@ function Invoke-Migrations([string]$db) {
   & $psql -h 127.0.0.1 -p $PgPort -U postgres -d $db -q -X -c "notify pgrst, 'reload schema'"
   Say "تعديلات جديدة في القاعدة: $n"
 }
+
+# Edge أو Chrome (البرنامج بيتفتح فيهم كتطبيق في نافذة لوحده). Edge موجود على أي ويندوز 10/11
+function Find-Browser {
+  $cands = @()
+  foreach ($base in @(${env:ProgramFiles(x86)}, $env:ProgramFiles) | Where-Object { $_ }) {
+    $cands += (Join-Path $base "Microsoft\Edge\Application\msedge.exe")
+  }
+  foreach ($base in @($env:ProgramFiles, ${env:ProgramFiles(x86)}, $env:LOCALAPPDATA) | Where-Object { $_ }) {
+    $cands += (Join-Path $base "Google\Chrome\Application\chrome.exe")
+  }
+  foreach ($k in @("msedge.exe", "chrome.exe")) {
+    $reg = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\$k" -ErrorAction SilentlyContinue
+    if ($reg -and $reg."(default)") { $cands += $reg."(default)" }
+  }
+  foreach ($c in $cands) { if ($c -and (Test-Path $c)) { return $c } }
+  return $null
+}
