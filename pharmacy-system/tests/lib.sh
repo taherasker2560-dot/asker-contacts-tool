@@ -7,4 +7,5 @@ new_db() {
   trap 'psql "$PGURL" -qX -c "drop database if exists $DB" >/dev/null' EXIT
   URL="${PGURL%/*}/$DB"
   for f in db/[0-9][0-9]-*.sql; do PGOPTIONS='-c client_min_messages=warning' psql "$URL" -qX -v ON_ERROR_STOP=1 -f "$f"; done
+  bash tools/migrate.sh "$URL" db/migrations >/dev/null   # التسطيب الجديد = الأساس + كل التعديلات
 }

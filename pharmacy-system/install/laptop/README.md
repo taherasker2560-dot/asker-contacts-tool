@@ -16,7 +16,9 @@
 | 4 | خريطة جداول فارمافلاي من القاعدة اللي الهَب مرجّعها | `pharmacy-system\import\discover.py` بـ `MSSQL_HOST` و`MSSQL_USER` و`MSSQL_PASSWORD` و`MSSQL_DB` |
 | 5 | ملف الربط (`import\pharmafly-to-stage.sql`) حسب `import\MAPPING.md` والخريطة | بيتكتب مرة واحدة |
 | 6 | النقل: نسخ الجداول ← الربط ← النقل بالتاريخ | `copy.py` بـ `PGURL=postgresql://postgres:<secrets\postgres.txt>@127.0.0.1:5433/asker` ثم `psql -f pharmafly-to-stage.sql` ثم `select ph.import_history('…');` |
-| 7 | نقل من نسخة أحدث بعدين | `setup-trial.ps1 -ResetDb` ثم 6 تاني |
+| 7 | نقل من نسخة أحدث بعدين | `setup-trial.ps1 -ResetDb` ثم 6 تاني (سجل المشاكل بيتحفظ CSV في `reports` الأول) |
+| 7ب | **تحديث بعد أي تعديل** (نسخة احتياطية ← الكود ← تعديلات القاعدة ← الفحص) | `…\update-trial.ps1` |
+| 7ج | **الرجوع** لو التعديل ماعجبكش | `…\rollback-trial.ps1 -Commit <الرقم اللي التحديث طبعه>` |
 | 8 | الإيقاف | `…\stop-trial.ps1` |
 
 ## الثبات والأخطاء والمشاكل

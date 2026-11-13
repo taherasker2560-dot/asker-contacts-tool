@@ -49,6 +49,11 @@ Start-Postgres
 # 3) القاعدة
 $psql = Join-Path $PgBin "psql.exe"
 if ($ResetDb) {
+  # سجل المشاكل بيتحفظ CSV قبل المسح
+  $notes = Join-Path $Root ("reports\trial_notes_" + (Get-Date -Format "yyyy-MM-dd_HHmm") + ".csv")
+  New-Item -ItemType Directory -Force -Path (Split-Path $notes) | Out-Null
+  & $psql -h 127.0.0.1 -p $PgPort -U postgres -d asker -q -X -c "\copy (select * from ph.trial_notes order by id) to '$($notes.Replace('\', '/'))' with csv header"   # «/» عشان psql مايقراش \t كـ Tab
+  if ($LASTEXITCODE -eq 0) { Say "سجل المشاكل اتحفظ: $notes" }
   Say "مسح القاعدة asker"
   & $psql -h 127.0.0.1 -p $PgPort -U postgres -d postgres -q -X -c "drop database if exists asker with (force)"
 }
@@ -57,6 +62,7 @@ if ("$exists".Trim() -ne "1") {
   & (Join-Path $PgBin "createdb.exe") -h 127.0.0.1 -p $PgPort -U postgres asker
   Get-ChildItem (Join-Path $Pharmacy "db") -Filter "*.sql" | Where-Object { $_.Name -match '^\d\d-' } | Sort-Object Name |
     ForEach-Object { Say "تحميل $($_.Name)"; Invoke-Psql "asker" $_.FullName }
+  Invoke-Migrations "asker"
 
   # 4) الأسرار (مرة واحدة، وبتتعاد استخدامها مع -ResetDb)
   $jwtFile = Join-Path $Secrets "jwt_secret.txt"; $authFile = Join-Path $Secrets "authenticator.txt"
