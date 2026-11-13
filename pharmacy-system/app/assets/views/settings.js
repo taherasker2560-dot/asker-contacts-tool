@@ -117,11 +117,13 @@ export default async function settings({ el, api, state, can }) {
   render($('#sf', el), h`
     <div class="field"><label>اسم الصيدلية (على الإيصال وفوق)</label><input class="input" id="pn" value="${st.pharmacy_name || ''}" ${owner ? '' : 'disabled'}></div>
     <div class="field"><label>«قرّب يخلص» = صلاحيته في خلال كام يوم</label><input class="input num" id="ne" type="number" min="7" max="730" value="${st.near_expiry_days || 90}" ${owner ? '' : 'disabled'}></div>
+    <label class="row" style="gap:10px;align-items:flex-start"><input type="checkbox" id="neg" ${st.allow_negative_stock ? 'checked' : ''} ${owner ? '' : 'disabled'} style="width:20px;height:20px;margin-top:2px">
+      <span><b>البيع قبل إدخال فاتورة الشرا</b><span class="muted" style="display:block;font-size:13px">الصنف يتباع حتى لو رصيده صفر، ويبان بالسالب لحد ما فاتورة الشرا تترحّل وتقفله لوحدها</span></span></label>
     <div class="row between"><span class="muted" style="font-size:13px">اليوم بيبدأ الساعة ${st.day_starts_at ?? 6} الصبح · ${st.time_zone || 'Africa/Cairo'}</span>${owner ? h`<button class="btn sm" id="ss" type="button" data-hot="alt+s">احفظ <kbd style="background:transparent;color:var(--on-c-2)">Alt+S</kbd></button>` : ''}</div>`);
   $('#colors', el).addEventListener('click', colorDialog);
   const ss = $('#ss', el);
   if (ss) ss.addEventListener('click', async () => {
-    try { const [r] = await api.update('settings', { id: 'eq.1' }, { pharmacy_name: $('#pn', el).value.trim(), near_expiry_days: +$('#ne', el).value }); state.settings = r; toast('اتحفظ ✓', 'good'); }
+    try { const [r] = await api.update('settings', { id: 'eq.1' }, { pharmacy_name: $('#pn', el).value.trim(), near_expiry_days: +$('#ne', el).value, allow_negative_stock: $('#neg', el).checked }); state.settings = r; toast('اتحفظ ✓', 'good'); }
     catch (e) { toast(e.message, 'bad'); }
   });
 

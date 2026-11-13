@@ -176,7 +176,7 @@ export default async function pos({ el, api, state }) {
     const mode = 'pack';
     const ex = cart.find((l) => l.item.id === it.id && l.mode === mode);
     if (ex) ex.qty += n; else cart.push({ item: it, qty: n, mode });
-    if (Number(it.onhand_units) <= 0) { beep(false); toast(`${it.name_ar || it.name_en}: الرصيد صفر، هتحتاج تأكد`, 'bad'); } else beep(true);
+    if (Number(it.onhand_units) <= 0) { beep(false); toast(state.settings && state.settings.allow_negative_stock ? `${it.name_ar || it.name_en}: الرصيد صفر، هيتباع بالسالب لحد ما فاتورة الشرا تتدخل` : `${it.name_ar || it.name_en}: الرصيد صفر، مش هيتباع`, 'bad'); } else beep(true);
     q.value = ''; results = []; mult = 1; csel = -1; drawResults(); draw(); q.focus();
   }
   const lineUnits = (l) => l.qty * (l.mode === 'pack' ? Number(l.item.pack_parts || 1) : 1);
