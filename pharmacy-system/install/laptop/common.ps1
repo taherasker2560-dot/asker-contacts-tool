@@ -32,17 +32,33 @@ function Invoke-Psql([string]$db, [string]$file) {
   if ($LASTEXITCODE -ne 0) { throw "psql وقف في $file" }
 }
 
+# القاعدة شغالة؟ بنسأل القاعدة نفسها على البورت (pg_isready) الأول، وبعدين pg_ctl.
+# (على ويندوز pg_ctl status ممكن يقول «واقفة» وهي شغالة لو اتشغّلت من نافذة أو صلاحية تانية،
+#  وساعتها start بيلاقي ملف السجل مقفول ويوقف. ده اللي وقّف التحديث يوم 13 نوفمبر.)
 function Test-Postgres {
   $old = $ErrorActionPreference; $ErrorActionPreference = "Continue"
-  & (Join-Path $PgBin "pg_ctl.exe") -D $PgData status *> $null
-  $ok = ($LASTEXITCODE -eq 0); $ErrorActionPreference = $old
+  & (Join-Path $PgBin "pg_isready.exe") -h 127.0.0.1 -p $PgPort -t 3 *> $null
+  $ok = ($LASTEXITCODE -eq 0)
+  if (-not $ok) {
+    & (Join-Path $PgBin "pg_ctl.exe") -D $PgData status *> $null
+    $ok = ($LASTEXITCODE -eq 0)
+  }
+  $ErrorActionPreference = $old
   return $ok
 }
 
 function Start-Postgres {
   if (-not (Test-Postgres)) {
-    & (Join-Path $PgBin "pg_ctl.exe") -D $PgData -l (Join-Path $Logs "postgres.log") -o "-p $PgPort -c listen_addresses=127.0.0.1" -w start
-    if ($LASTEXITCODE -ne 0) { throw "PostgreSQL ماقامش: شوف $Logs\postgres.log" }
+    # لو ملف السجل مقفول (نسخة تانية لسه ماسكاه) نكتب في ملف جديد بدل ما نوقف
+    $log = Join-Path $Logs "postgres.log"
+    try { $s = [IO.File]::Open($log, 'OpenOrCreate', 'ReadWrite', 'ReadWrite'); $s.Close() }
+    catch { $log = Join-Path $Logs ("postgres-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".log") }
+    & (Join-Path $PgBin "pg_ctl.exe") -D $PgData -l $log -o "-p $PgPort -c listen_addresses=127.0.0.1" -w start
+    if ($LASTEXITCODE -ne 0) {
+      # آخر محاولة: يمكن قامت من مكان تاني في نفس اللحظة
+      Start-Sleep -Seconds 3
+      if (-not (Test-Postgres)) { throw "PostgreSQL ماقامش: شوف $log" }
+    }
   }
   $env:PGPASSWORD = (Get-Content (Join-Path $Secrets "postgres.txt") -Raw).Trim()
 }
