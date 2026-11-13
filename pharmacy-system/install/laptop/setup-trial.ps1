@@ -10,6 +10,7 @@ param(
   [int]$ApiPort = 3010,
   [string]$OwnerUser = "taher",
   [switch]$ResetDb,
+  [switch]$Demo,          # بيانات تجريبية (وهمية) عشان تشوف الشاشات مليانة قبل نقل فارمافلاي. بعدين: -ResetDb من غيره
   [string]$PgZipUrl = "https://get.enterprisedb.com/postgresql/postgresql-16.4-1-windows-x64-binaries.zip",
   [string]$PostgrestUrl = "https://github.com/PostgREST/postgrest/releases/download/v12.2.3/postgrest-v12.2.3-windows-x64.zip",
   [string]$CaddyUrl = "https://github.com/caddyserver/caddy/releases/download/v2.8.4/caddy_2.8.4_windows_amd64.zip"
@@ -71,6 +72,14 @@ if ("$exists".Trim() -ne "1") {
   $jwt = (Get-Content $jwtFile -Raw).Trim(); $auth = (Get-Content $authFile -Raw).Trim()
 
   # 5) إعدادات الصيدلية + المالك (كلمة السر بتتكتب هنا ومابتتحفظش)
+  if ($Demo) {
+    # البيانات التجريبية: 5 شهور وهمية + اليوزرات taher و cashier و pharmacist (كلمة السر demo-pass-1، للتجربة بس)
+    $tmp = Join-Path $Secrets "init.tmp.sql"
+    Write-Utf8 $tmp "insert into auth.config values ('jwt_secret', '$jwt');`nalter role authenticator password '$auth';`n"
+    try { Invoke-Psql "asker" $tmp } finally { Remove-Item $tmp -ErrorAction SilentlyContinue }
+    Say "تحميل البيانات التجريبية (دقيقة تقريبًا)"
+    Invoke-Psql "asker" (Join-Path $Pharmacy "tools\demo-seed.sql")
+  } else {
   $sec = Read-Host "كلمة سر المالك ($OwnerUser)، 8 حروف على الأقل" -AsSecureString
   $plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
   $tmp = Join-Path $Secrets "init.tmp.sql"
@@ -84,6 +93,7 @@ insert into ph.payment_methods values ('cash', 'كاش', 1), ('card', 'فيزا'
 select auth.bootstrap_owner('$OwnerUser', '$($plain.Replace("'", "''"))', 'د. طاهر');
 "@
   try { Invoke-Psql "asker" $tmp } finally { Remove-Item $tmp -ErrorAction SilentlyContinue; $plain = $null }
+  }
 
   # 6) إعدادات PostgREST
   Write-Utf8 (Join-Path $Conf "postgrest.conf") @"
@@ -98,3 +108,4 @@ server-port = $ApiPort
 }
 & (Join-Path $PSScriptRoot "desktop-icon.ps1") -Root $Root
 Say "التسطيب خلص. دوس على أيقونة «صيدلية عسكر» على سطح المكتب (أو Ctrl+Alt+A)"
+if ($Demo) { Say "بيانات تجريبية: ادخل بـ taher وكلمة السر demo-pass-1. قبل نقل داتا الصيدلية: setup-trial.ps1 -ResetDb" }

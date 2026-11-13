@@ -12,6 +12,7 @@
 |---|---|---|
 | 1 | هات آخر نسخة من الفرع `ccr-7fcc0f51-5mtsr9` | `git pull` |
 | 2 | التسطيب (مرة واحدة). بينزّل البرامج ويطبع بصمة كل ملف، وبيسألك على كلمة سر المالك | `powershell -ExecutionPolicy Bypass -File pharmacy-system\install\laptop\setup-trial.ps1` |
+| 2ب | **عايز تشوف البرنامج مليان قبل النقل؟** بيانات تجريبية وهمية (اليوزر `taher` وكلمة السر `demo-pass-1`). قبل نقل داتا الصيدلية امسحها بـ `-ResetDb` من غير `-Demo` | `…\setup-trial.ps1 -ResetDb -Demo` |
 | 3 | التشغيل | دوس على أيقونة **«صيدلية عسكر»** على سطح المكتب أو `Ctrl+Alt+A` (أو `…\start-trial.ps1` ← `http://127.0.0.1:8080`) |
 | 4 | خريطة جداول فارمافلاي من القاعدة اللي الهَب مرجّعها | `pharmacy-system\import\discover.py` بـ `MSSQL_HOST` و`MSSQL_USER` و`MSSQL_PASSWORD` و`MSSQL_DB` |
 | 5 | ملف الربط (`import\pharmafly-to-stage.sql`) حسب `import\MAPPING.md` والخريطة | بيتكتب مرة واحدة |
