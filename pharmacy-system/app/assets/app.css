@@ -313,3 +313,30 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
   .cart-line { grid-template-columns: minmax(0, 1fr) auto; } .cart-line .tot { grid-column: 1; text-align: start; } .cart-line .x { grid-row: 1; grid-column: 2; }
   .register { position: static; }
 }
+
+/* ---------------------------------------------------------------- الكيبورد */
+.kb-sel { outline: 2px solid var(--gold-500) !important; outline-offset: -2px; background: color-mix(in srgb, var(--gold-100) 55%, transparent) !important; border-radius: 10px; }
+tr.kb-sel td { background: color-mix(in srgb, var(--gold-100) 55%, transparent) !important; }
+.cart-line.kb-sel { border-radius: 12px; }
+.nav a .nav-k { margin-inline-start: auto; background: transparent; color: var(--side-muted); border-color: rgba(255,255,255,.18); opacity: .8; }
+.nav a .badge + .nav-k { margin-inline-start: 6px; }
+.kb-help kbd { margin-inline-start: 4px; }
+.fab kbd { background: transparent; }
+.kb-hints { position: fixed; inset: 0; z-index: 90; pointer-events: none; }
+.kb-hints span { position: fixed; transform: translate(0, 0); background: var(--gold-500); color: #2a0610; font: 700 12px/1 var(--f-mono); padding: 3px 5px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,.35); border: 1px solid #2a0610; letter-spacing: .5px; direction: ltr; }
+.kb-hints span.dim { opacity: .15; }
+.kb-guide .kb-h { font-size: 14px; color: var(--muted); margin: 14px 0 6px; font-weight: 600; }
+.kb-list { display: grid; gap: 4px; }
+.kb-row { display: grid; grid-template-columns: minmax(130px, auto) 1fr; gap: 12px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--line-2); font-size: 14px; }
+.kb-keys { display: flex; flex-wrap: wrap; gap: 4px; direction: ltr; justify-content: flex-end; }
+.print-sheet { display: none; }
+@media print {
+  body.printing-sheet * { visibility: hidden !important; }
+  body.printing-sheet .print-sheet, body.printing-sheet .print-sheet * { visibility: visible !important; }
+  body.printing-sheet .print-sheet { display: block; position: absolute; inset: 0 auto auto 0; width: 100%; color: #000; background: #fff; font-family: var(--f-ui); padding: 10mm; }
+  .print-sheet h1 { font-family: var(--f-display); font-size: 22px; margin: 0 0 6px; } .print-sheet h2 { font-size: 15px; margin: 12px 0 4px; }
+  .print-sheet table { width: 100%; border-collapse: collapse; font-size: 12px; } .print-sheet td { border-bottom: 1px solid #ccc; padding: 3px 4px; }
+  .print-sheet kbd { border: 1px solid #555; border-radius: 4px; padding: 0 4px; font-family: monospace; }
+  body.printing-sheet .receipt { display: none; }
+}
+@media (max-width: 860px) { .kb-help, .nav-k { display: none !important; } }

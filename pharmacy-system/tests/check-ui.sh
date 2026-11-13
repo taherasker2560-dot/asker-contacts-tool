@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# الشاشات من أولها لآخرها في Chromium على البيانات التجريبية: Postgres + PostgREST + Caddy (Docker) زي التسطيب بالظبط.
+# الشاشات من أولها لآخرها في Chromium، وبعدين نفس البرنامج بالكيبورد بس (من غير ولا ضغطة ماوس) على البيانات التجريبية: Postgres + PostgREST + Caddy (Docker) زي التسطيب بالظبط.
 # محتاج: Docker وصورتين postgrest/postgrest:v12.2.3 و caddy:2.8.4، و Playwright (موجود في بيئة Claude).
 # الاستخدام: PGURL=postgresql:///postgres bash pharmacy-system/tests/check-ui.sh [فولدر للصور]
 set -euo pipefail
@@ -23,3 +23,4 @@ docker run -d --name ph-ui-caddy --network host -e ASKER_PORT="$WEB" -e ASKER_BI
   -e ASKER_APP_DIR=/app -v "$PWD/install/Caddyfile:/etc/caddy/Caddyfile:ro" -v "$PWD/app:/app:ro" caddy:2.8.4 >/dev/null
 for i in $(seq 1 40); do [ "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$WEB/rest/v1/")" = 200 ] && break; sleep 1; done
 BASE="http://127.0.0.1:$WEB" DBURL="$URL" node tests/check-ui.cjs "${1:-}"
+BASE="http://127.0.0.1:$WEB" DBURL="$URL" node tests/check-keyboard.cjs

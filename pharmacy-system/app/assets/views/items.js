@@ -12,8 +12,8 @@ export default async function items(ctx) {
     <div class="head"><div><h1>الأصناف والمخزون</h1><p id="cnt">…</p></div></div>
     <div class="card">
       <div class="row wrap" style="gap:12px;margin-bottom:12px">
-        <div class="search" style="flex:1;min-width:240px">${icon('search')}<input class="input" id="s" placeholder="اسم الصنف بالعربي أو الإنجليزي، أو رقمه"></div>
-        <div class="chips" id="f">
+        <div class="search" style="flex:1;min-width:240px">${icon('search')}<input class="input" id="s" data-search placeholder="اسم الصنف بالعربي أو الإنجليزي، أو رقمه ( / )"></div>
+        <div class="chips" id="f" data-tabs>
           <button class="chip on" data-f="all">الكل</button><button class="chip" data-f="out">ناقص</button><button class="chip" data-f="exp">صلاحية قريبة</button>
           <button class="chip" data-f="ctrl">جدول</button><button class="chip" data-f="fridge">تلاجة</button></div>
       </div>
@@ -35,7 +35,7 @@ export default async function items(ctx) {
     $('#cnt', el).textContent = rows.length >= 200 ? 'أول 200 صنف — دوّر بالاسم عشان تضيّق' : `${int(rows.length)} صنف`;
     render($('#rows', el), rows.length ? h`${rows.map((r) => {
       const on = Number(r.onhand_units) > 0;
-      return h`<tr class="click" data-id="${r.id}"><td class="name"><b>${r.name_ar || r.name_en}</b><span class="en">${r.name_en} · #${r.id}</span></td>
+      return h`<tr class="click" data-row data-id="${r.id}"><td class="name"><b>${r.name_ar || r.name_en}</b><span class="en">${r.name_en} · #${r.id}</span></td>
         <td>${r.category || '—'} ${r.is_controlled ? h`<span class="pill p-bad plain">جدول</span>` : ''} ${r.is_fridge ? h`<span class="pill p-info plain">تلاجة</span>` : ''}</td>
         <td class="n">${on ? qty(r.onhand_units, r.pack_parts, r.pack_name, r.unit_name) : h`<span class="pill p-bad">ناقص</span>`}</td>
         <td class="n"><b>${money(r.public_price)}</b></td><td>${on ? expiryPill(r.nearest_expiry) : '—'}</td></tr>`;
@@ -69,12 +69,12 @@ async function itemPage({ el, api, go, can }, id) {
   const best = buys[0];
   render(el, h`
     <div class="head"><div>
-      <a href="#/items" class="muted" style="text-decoration:none;font-size:14px">${icon('back', 'icon-sm')} الأصناف</a>
+      <a href="#/items" data-back class="muted" style="text-decoration:none;font-size:14px">${icon('back', 'icon-sm')} الأصناف</a>
       <h1 style="margin-top:4px">${it.name_ar || it.name_en}</h1>
       <p class="ltr" style="text-align:right">${it.name_en} · #${it.id}</p>
       <div class="row wrap" style="gap:6px;margin-top:8px">${it.category ? h`<span class="pill p-muted plain">${it.category}</span>` : ''}${it.is_controlled ? h`<span class="pill p-bad plain">جدول</span>` : ''}${it.needs_rx ? h`<span class="pill p-info plain">روشتة</span>` : ''}${it.is_fridge ? h`<span class="pill p-info plain">${icon('fridge', 'icon-sm')} تلاجة</span>` : ''}
         <span class="pill p-gold plain">${it.pack_name || 'علبة'} = ${it.pack_parts} ${it.unit_name}</span></div></div>
-      <div class="actions"><a class="btn" href="#/pos">${icon('pos')} بيع</a></div></div>
+      <div class="actions"><a class="btn" href="#/pos" data-hot="alt+s">${icon('pos')} بيع <kbd style="background:transparent;color:#f0cdd5">Alt+S</kbd></a></div></div>
     <section class="grid g4">
       <div class="card kpi hero"><div class="l">${icon('box')} الرصيد</div><div class="v">${qty(it.onhand_units, it.pack_parts, it.pack_name, it.unit_name)}</div><div class="f">${stock.length} تشغيلة · ${it.nearest_expiry ? 'أقرب صلاحية ' + dateMY(it.nearest_expiry) : ''}</div></div>
       <div class="card kpi"><div class="l">${icon('chart')} بيع آخر 30 يوم</div><div class="v">${qty(s30 ? s30.units : 0, it.pack_parts, it.pack_name, it.unit_name)}</div><div class="f">≈ ${num((daily * 30 / it.pack_parts) / 4.3)} ${it.pack_name || 'علبة'} في الأسبوع</div></div>
@@ -96,7 +96,7 @@ async function itemPage({ el, api, go, can }, id) {
           </tbody></table></div>` : empty('مفيش شرا متسجل')}
         ${offers.length ? h`<h3 style="font-size:14px;margin:16px 0 6px">عروض الموردين الأخيرة</h3><div class="chips">${offers.map((o) => h`<span class="pill p-gold plain">${o.suppliers ? o.suppliers.name : ''} ${o.discount_pct != null ? num(o.discount_pct) + '%' : money(o.price)} · ${dateShort(o.offered_at)}</span>`)}</div>` : ''}</div>
       <div class="card"><header><h2>البدايل الموجودة</h2><span class="sub">نفس المادة الفعالة والشكل</span></header>
-        <div class="list">${alts.length ? alts.map((a) => h`<a class="li" href="#/items/${a.id}" style="text-decoration:none;color:inherit"><span class="ico i-crimson">${icon('swap')}</span><div class="grow"><b>${a.name_ar || a.name_en}</b><span class="en">${a.name_en}</span></div><div class="end"><b>${money(a.price_pack)}</b> ج<div class="muted" style="font-size:12px">${qty(a.onhand_units, a.pack_parts)}</div></div></a>`) : empty('مفيش بديل عليه رصيد')}</div></div>
+        <div class="list">${alts.length ? alts.map((a) => h`<a class="li" data-row href="#/items/${a.id}" style="text-decoration:none;color:inherit"><span class="ico i-crimson">${icon('swap')}</span><div class="grow"><b>${a.name_ar || a.name_en}</b><span class="en">${a.name_en}</span></div><div class="end"><b>${money(a.price_pack)}</b> ج<div class="muted" style="font-size:12px">${qty(a.onhand_units, a.pack_parts)}</div></div></a>`) : empty('مفيش بديل عليه رصيد')}</div></div>
     </section>
     <section class="card" style="margin-top:16px"><header><h2>كارت الصنف</h2><span class="sub">كل حركة، والرصيد بعدها</span></header>
       <div class="tbl-wrap"><table class="tbl"><thead><tr><th>الوقت</th><th>الحركة</th><th class="n">الكمية</th><th class="n">الرصيد بعدها</th></tr></thead><tbody>

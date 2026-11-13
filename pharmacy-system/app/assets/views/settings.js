@@ -11,10 +11,10 @@ export default async function settings({ el, api, state, can }) {
   render(el, h`
     <div class="head"><div><h1>الإعدادات والتجربة</h1><p>كل حاجة بتتقاس: سلامة القاعدة، المشاكل اللي اتسجلت، ومين بيدخل بإيه.</p></div></div>
     <section class="grid g2">
-      <div class="card"><header><div><h2>سلامة القاعدة</h2><span class="sub">10 قواعد لازم تفضل صح مهما حصل</span></div><button class="btn sm quiet" id="hc">${icon('refresh')} افحص</button></header><div class="list" id="health">${skeleton(5)}</div></div>
+      <div class="card"><header><div><h2>سلامة القاعدة</h2><span class="sub">10 قواعد لازم تفضل صح مهما حصل</span></div><button class="btn sm quiet" id="hc" data-hot="alt+h">${icon('refresh')} افحص <kbd>Alt+H</kbd></button></header><div class="list" id="health">${skeleton(5)}</div></div>
       <div class="card"><header><div><h2>ملاحظات التجربة</h2><span class="sub">اللي اتسجل من الشاشات أو من المحادثة</span></div><span id="ncount"></span></header><div class="list" id="notes">${skeleton(5)}</div></div>
     </section>
-    ${owner ? h`<section class="card" style="margin-top:16px"><header><div><h2>الموظفين والصلاحيات</h2><span class="sub">كل واحد بيشوف ويعمل اللي دوره يسمح بيه بس (من القاعدة نفسها)</span></div><button class="btn sm" id="add">${icon('plus')} موظف جديد</button></header><div id="staff">${skeleton(4)}</div></section>` : ''}
+    ${owner ? h`<section class="card" style="margin-top:16px"><header><div><h2>الموظفين والصلاحيات</h2><span class="sub">كل واحد بيشوف ويعمل اللي دوره يسمح بيه بس (من القاعدة نفسها)</span></div><button class="btn sm" id="add" data-hot="alt+a">${icon('plus')} موظف جديد <kbd style="background:transparent;color:#f0cdd5">Alt+A</kbd></button></header><div id="staff">${skeleton(4)}</div></section>` : ''}
     <section class="grid g2" style="margin-top:16px">
       <div class="card"><header><div><h2>بيانات الصيدلية</h2></div></header><form class="stack" id="sf"></form></div>
       <div class="card"><header><div><h2>النقل من فارمافلاي</h2><span class="sub">التاريخ من 2018 بأرقامه وتواريخه الأصلية</span></div></header><div id="imp">${skeleton(4)}</div></div>
@@ -33,10 +33,10 @@ export default async function settings({ el, api, state, can }) {
       const rows = await api.select('trial_notes', { order: 'status.desc,at.desc', limit: 30 });
       const open = rows.filter((r) => r.status === 'open');
       $('#ncount', el).innerHTML = String(h`<span class="pill ${open.length ? 'p-warn' : 'p-good'}">${open.length} مفتوحة</span>`);
-      render(box, rows.length ? h`${rows.map((r) => h`<div class="li" style="align-items:flex-start;opacity:${r.status === 'open' ? 1 : 0.55}">
+      render(box, rows.length ? h`${rows.map((r) => h`<div class="li" data-row style="align-items:flex-start;opacity:${r.status === 'open' ? 1 : 0.55}">
         <span class="pill ${SEV[r.severity][1]}">${SEV[r.severity][0]}</span>
         <div class="grow"><b style="font-weight:500">${r.note}</b><span class="muted" style="font-size:12px">${AREA[r.area] || r.area} · ${ago(r.at)}${r.fixed_note ? ' · اتصلح: ' + r.fixed_note : ''}</span></div>
-        ${r.status === 'open' && can(['owner', 'manager']) ? h`<button class="btn sm quiet" data-fix="${r.id}">${icon('check')} اتصلحت</button>` : ''}</div>`)}` : empty('مفيش ملاحظات', 'استخدم زرار «سجّل ملاحظة» تحت في أي شاشة'));
+        ${r.status === 'open' && can(['owner', 'manager']) ? h`<button class="btn sm quiet" data-fix="${r.id}" data-key="f" title="علّمها اتصلحت">${icon('check')} اتصلحت <kbd>F</kbd></button>` : ''}</div>`)}` : empty('مفيش ملاحظات', 'استخدم زرار «سجّل ملاحظة» تحت في أي شاشة'));
     } catch (e) { render(box, errorBox(e)); }
   }
   $('#notes', el).addEventListener('click', async (e) => {
@@ -54,11 +54,11 @@ export default async function settings({ el, api, state, can }) {
     try {
       const rows = await api.select('v_staff', { order: 'role,name' });
       render(box, h`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>الاسم</th><th>اسم الدخول</th><th>الدور</th><th>آخر دخول</th><th></th></tr></thead><tbody>
-        ${rows.map((r) => h`<tr><td><b>${r.name}</b> ${r.active ? '' : h`<span class="pill p-muted">موقوف</span>`} ${r.locked_until && new Date(r.locked_until) > new Date() ? h`<span class="pill p-bad">مقفول مؤقتًا</span>` : ''}</td>
+        ${rows.map((r) => h`<tr data-row><td><b>${r.name}</b> ${r.active ? '' : h`<span class="pill p-muted">موقوف</span>`} ${r.locked_until && new Date(r.locked_until) > new Date() ? h`<span class="pill p-bad">مقفول مؤقتًا</span>` : ''}</td>
           <td class="ltr" style="text-align:right">${r.username}</td><td><span class="pill ${r.role === 'bot' ? 'p-info' : r.role === 'owner' ? 'p-gold' : 'p-muted'} plain">${r.role === 'bot' ? icon('bot', 'icon-sm') : ''} ${ROLE_AR[r.role] || r.role}</span></td>
           <td>${r.last_login_at ? ago(r.last_login_at) : '—'}</td>
-          <td class="row" style="justify-content:flex-end">${r.kind === 'bot' ? h`<button class="btn sm" data-token="${r.username}">${icon('key')} مفتاح جديد</button>` : h`<button class="btn sm quiet" data-pw="${r.username}">كلمة سر</button>`}
-            ${r.role !== 'owner' ? h`<button class="btn sm quiet" data-revoke="${r.username}" title="يخرج من كل الأجهزة">اقفل جلساته</button>` : ''}</td></tr>`)}</tbody></table></div>`);
+          <td class="row" style="justify-content:flex-end">${r.kind === 'bot' ? h`<button class="btn sm" data-token="${r.username}" data-key="k" title="مفتاح جديد للبوت">${icon('key')} مفتاح جديد <kbd style="background:transparent;color:#f0cdd5">K</kbd></button>` : h`<button class="btn sm quiet" data-pw="${r.username}" data-key="w" title="كلمة سر جديدة">كلمة سر <kbd>W</kbd></button>`}
+            ${r.role !== 'owner' ? h`<button class="btn sm quiet" data-revoke="${r.username}" data-key="l" title="اقفل جلساته (يخرج من كل الأجهزة)">اقفل جلساته <kbd>L</kbd></button>` : ''}</td></tr>`)}</tbody></table></div>`);
     } catch (e) { render(box, errorBox(e)); }
   }
   if (owner) {
@@ -101,7 +101,7 @@ export default async function settings({ el, api, state, can }) {
   render($('#sf', el), h`
     <div class="field"><label>اسم الصيدلية (على الإيصال وفوق)</label><input class="input" id="pn" value="${st.pharmacy_name || ''}" ${owner ? '' : 'disabled'}></div>
     <div class="field"><label>«قرّب يخلص» = صلاحيته في خلال كام يوم</label><input class="input num" id="ne" type="number" min="7" max="730" value="${st.near_expiry_days || 90}" ${owner ? '' : 'disabled'}></div>
-    <div class="row between"><span class="muted" style="font-size:13px">اليوم بيبدأ الساعة ${st.day_starts_at ?? 6} الصبح · ${st.time_zone || 'Africa/Cairo'}</span>${owner ? h`<button class="btn sm" id="ss" type="button">احفظ</button>` : ''}</div>`);
+    <div class="row between"><span class="muted" style="font-size:13px">اليوم بيبدأ الساعة ${st.day_starts_at ?? 6} الصبح · ${st.time_zone || 'Africa/Cairo'}</span>${owner ? h`<button class="btn sm" id="ss" type="button" data-hot="alt+s">احفظ <kbd style="background:transparent;color:#f0cdd5">Alt+S</kbd></button>` : ''}</div>`);
   const ss = $('#ss', el);
   if (ss) ss.addEventListener('click', async () => {
     try { const [r] = await api.update('settings', { id: 'eq.1' }, { pharmacy_name: $('#pn', el).value.trim(), near_expiry_days: +$('#ne', el).value }); state.settings = r; toast('اتحفظ ✓', 'good'); }

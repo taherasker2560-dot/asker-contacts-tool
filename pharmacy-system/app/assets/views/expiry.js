@@ -30,7 +30,7 @@ export default async function expiry({ el, api, state }) {
     <div class="card kpi"><div class="l">${icon('alert')} أقل من شهر</div><div class="v">${int(red.length)}<small>تشغيلة</small></div><div class="f">${expired.length ? h`<span class="pill p-bad">${expired.length} خلصت فعلًا</span> مابتتباعش` : 'مفيش حاجة خلصت'}</div></div>
     <div class="card kpi"><div class="l">${icon('clock')} قرّبت تخلص</div><div class="v">${int(exp.length)}<small>تشغيلة</small></div><div class="f">صلاحيتها في حدود ${(state.settings && state.settings.near_expiry_days) || 90} يوم</div></div>`);
 
-  render($('#risk', el), risk.length ? h`${risk.map((r) => h`<tr class="click" data-id="${r.item_id}">
+  render($('#risk', el), risk.length ? h`${risk.map((r) => h`<tr class="click" data-row data-id="${r.item_id}">
       <td class="name"><b>${r.name_ar || r.name_en}</b><span class="en">${r.name_en} · ${r.location}</span></td>
       <td><span class="pill ${r.days_left <= 30 ? 'p-bad' : r.days_left <= 90 ? 'p-warn' : 'p-muted'}">${dateMY(r.expiry)}</span><div class="muted" style="font-size:12px">${inDays(r.days_left)}</div></td>
       <td class="n">${num(r.qty_units)}</td>
@@ -59,10 +59,10 @@ export default async function expiry({ el, api, state }) {
   const groups = [...by.entries()];
   render($('#ret', el), groups.length ? h`${groups.map(([sid, g]) => {
     const msg = `السلام عليكم، معانا أصناف صلاحيتها قرّبت ومحتاجين نرجّعها:\n` + g.rows.map((r) => `- ${r.name_en}: ${num(r.packs)} علبة${Number(r.units) ? ' و' + num(r.units) + ' شريط' : ''} (صلاحية ${r.expiry.slice(0, 7)})`).join('\n') + `\nياريت تبلغنا ميعاد المندوب. شكرًا`;
-    return h`<div class="card" style="box-shadow:none;background:var(--card-2)"><header><h2>${g.name}</h2><span class="pill p-bad">${g.rows.length} صنف</span></header>
+    return h`<div class="card" data-row data-group style="box-shadow:none;background:var(--card-2)"><header><h2>${g.name}</h2><span class="pill p-bad">${g.rows.length} صنف</span></header>
       <div class="list">${g.rows.slice(0, 6).map((r) => h`<div class="li"><div class="grow"><b>${r.name_ar || r.name_en}</b><span class="muted" style="font-size:12px">${qty(Number(r.packs) * 1, 1, 'علبة')}${Number(r.units) ? ' و' + num(r.units) + ' شريط' : ''}</span></div><span class="pill ${r.level === 'expired' ? 'p-bad' : 'p-warn'}">${r.level === 'expired' ? 'خلصت' : inDays(r.days_left)}</span></div>`)}</div>
-      <div class="row" style="margin-top:12px"><button class="btn sm ghost" data-copy="${sid}">${icon('copy')} انسخ الرسالة</button>
-        <a class="btn sm quiet" target="_blank" rel="noopener" href="${waLink(phones[sid], msg)}">${icon('whatsapp')} افتح واتساب</a></div>
+      <div class="row" style="margin-top:12px"><button class="btn sm ghost" data-copy="${sid}" data-key="c" title="انسخ رسالة المرتجع">${icon('copy')} انسخ الرسالة <kbd>C</kbd></button>
+        <a class="btn sm quiet" data-key="w" title="افتح واتساب المورد" target="_blank" rel="noopener" href="${waLink(phones[sid], msg)}">${icon('whatsapp')} افتح واتساب <kbd>W</kbd></a></div>
       <textarea hidden data-msg="${sid}">${msg}</textarea></div>`;
   })}` : empty('مفيش مرتجع', 'مفيش حاجة صلاحيتها أقل من شهر'));
   $('#ret', el).addEventListener('click', (e) => { const b = e.target.closest('[data-copy]'); if (b) copyText($(`[data-msg="${b.dataset.copy}"]`, el).value); });

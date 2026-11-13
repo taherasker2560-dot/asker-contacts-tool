@@ -9,7 +9,7 @@ export default async function dashboard({ el, api, state, can }) {
   render(el, h`
     <div class="head"><div><h1>${hello()} يا ${first}</h1><p id="sub">بجهّز أرقام النهارده…</p></div>
       <div class="actions"><a class="btn" href="#/pos">${icon('pos')} بيع جديد <kbd style="background:transparent;color:#f0cdd5;border-color:rgba(255,255,255,.3)">F2</kbd></a>
-      <button class="btn quiet" id="rf">${icon('refresh')} تحديث</button></div></div>
+      <button class="btn quiet" id="rf" title="F5">${icon('refresh')} تحديث <kbd>F5</kbd></button></div></div>
     <section class="grid g4" id="kpis">${[1, 2, 3, 4].map(() => h`<div class="card kpi">${skeleton(3)}</div>`)}</section>
     <section class="card" style="margin-top:16px"><header><h2>محتاج منك النهارده</h2><span class="sub" id="health"></span></header><div class="todo" id="todo">${skeleton(2)}</div></section>
     <section class="grid g-wide" style="margin-top:16px">
@@ -76,7 +76,7 @@ export default async function dashboard({ el, api, state, can }) {
       { n: d.ordered_today, t: 'صنف اتطلب النهارده', href: '#/orders', ic: 'check', tone: 'i-good', show: true },
       { n: d.open_notes, t: 'ملاحظة تجربة مفتوحة', href: '#/settings', ic: 'note', tone: 'i-info', show: can(['owner', 'manager']) },
     ].filter((x) => x.show).slice(0, 6);
-    render($('#todo', el), h`${todo.map((x) => h`<a href="${x.href}"><span class="ico ${x.tone}">${icon(x.ic)}</span><div><b>${int(x.n)}</b><span>${x.t}</span></div></a>`)}`);
+    render($('#todo', el), h`${todo.map((x) => h`<a href="${x.href}" data-row><span class="ico ${x.tone}">${icon(x.ic)}</span><div><b>${int(x.n)}</b><span>${x.t}</span></div></a>`)}`);
     if (health) {
       const bad = health.filter((c) => !c.ok);
       render($('#health', el), bad.length
@@ -102,7 +102,7 @@ export default async function dashboard({ el, api, state, can }) {
     }));
 
     const maxTop = Math.max(1, ...top.map((r) => Number(r.value)));
-    render($('#top', el), top.length ? h`${top.map((r, i) => h`<a class="li" href="#/items/${r.item_id}" style="text-decoration:none;color:inherit">
+    render($('#top', el), top.length ? h`${top.map((r, i) => h`<a class="li" data-row href="#/items/${r.item_id}" style="text-decoration:none;color:inherit">
         <span class="ico ${i < 3 ? 'i-gold' : 'i-crimson'}" style="font-family:var(--f-display);font-size:16px">${i + 1}</span>
         <div class="grow"><b>${r.name_ar || r.name_en}</b><div class="meter" style="margin-top:6px"><i style="width:${(Number(r.value) / maxTop) * 100}%;background:var(--s1)"></i></div></div>
         <div class="end"><b>${moneyR(r.value)}</b><div class="muted" style="font-size:12px">${int(r.invoices)} فاتورة</div></div></a>`)}`
@@ -120,7 +120,7 @@ export default async function dashboard({ el, api, state, can }) {
         <div class="end"><b>${money(s.total)}</b>${Number(s.on_credit) ? h`<div style="font-size:12px" class="muted">آجل ${money(s.on_credit)}</div>` : ''}</div></div>`)}` : h`<div class="empty"><b>مفيش فواتير</b></div>`);
     $('#live', el).innerHTML = String(h`<span class="pill p-good">مباشر</span>`);
 
-    render($('#refills', el), refills.length ? h`${refills.map((r) => h`<a class="li" href="#/customers" style="text-decoration:none;color:inherit"><span class="ico i-gold">${icon('heart')}</span>
+    render($('#refills', el), refills.length ? h`${refills.map((r) => h`<a class="li" data-row href="#/customers" style="text-decoration:none;color:inherit"><span class="ico i-gold">${icon('heart')}</span>
         <div class="grow"><b>${r.customer}</b><span class="muted" style="font-size:13px">${r.name_ar || r.name_en} · كل ${r.every_days} يوم</span></div>
         <span class="pill ${r.days_late > 0 ? 'p-bad' : 'p-warn'}">${r.days_late > 0 ? 'متأخر ' + r.days_late + ' يوم' : inDays(-r.days_late)}</span></a>`)}`
       : h`<div class="empty"><b>مفيش مواعيد قريبة</b>العملاء المزمنين كلهم واخدين علبهم</div>`);

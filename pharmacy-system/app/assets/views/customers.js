@@ -11,7 +11,7 @@ export default async function customers(ctx) {
   let tab = TABS.some((t) => t[0] === p0) ? p0 : 'refills';
   render(el, h`
     <div class="head"><div><h1>العملاء</h1><p>العميل المزمن اللي بتفكّره بعلبته… مابيروحش لحد تاني.</p></div></div>
-    <div class="chips" id="tabs" style="margin-bottom:14px">${TABS.map(([k, l, ic]) => h`<button class="chip ${k === tab ? 'on' : ''}" data-t="${k}">${l}<span class="c" data-c="${k}"></span></button>`)}</div>
+    <div class="chips" id="tabs" data-tabs style="margin-bottom:14px">${TABS.map(([k, l, ic]) => h`<button class="chip ${k === tab ? 'on' : ''}" data-t="${k}">${l}<span class="c" data-c="${k}"></span></button>`)}</div>
     <div class="card" id="body">${skeleton(6)}</div>`);
   $('#tabs', el).addEventListener('click', (e) => { const c = e.target.closest('.chip'); if (!c) return; tab = c.dataset.t; history.replaceState(null, '', '#/customers/' + tab); $$('#tabs .chip', el).forEach((x) => x.classList.toggle('on', x === c)); show(); });
   const body = $('#body', el);
@@ -23,20 +23,20 @@ export default async function customers(ctx) {
       if (tab === 'refills') {
         const rows = await api.select('v_refills_due', { order: 'days_late.desc' });
         render(body, rows.length ? h`<header><div><h2>ميعاد علبتهم قرّب أو فات</h2><span class="sub">الرسالة بتتكتب لوحدها، وإنت اللي بتدوس إرسال</span></div></header>
-          <div class="list">${rows.map((r, i) => h`<div class="li"><span class="ico ${r.days_late > 0 ? 'i-bad' : 'i-gold'}">${icon('heart')}</span>
+          <div class="list">${rows.map((r, i) => h`<div class="li" data-row><span class="ico ${r.days_late > 0 ? 'i-bad' : 'i-gold'}">${icon('heart')}</span>
             <div class="grow"><a href="#/customers/${r.customer_id}" style="color:inherit;text-decoration:none"><b>${r.customer}</b></a><span class="muted" style="font-size:13px">${r.name_ar || r.name_en} · كل ${r.every_days} يوم · آخر مرة ${dateShort(r.last_bought)}</span></div>
             <span class="pill ${r.days_late > 0 ? 'p-bad' : 'p-warn'}">${r.days_late > 0 ? 'متأخر ' + r.days_late + ' يوم' : inDays(-r.days_late)}</span>
-            <button class="btn sm ghost" data-copy="${i}">${icon('copy')}</button>
-            <a class="btn sm" target="_blank" rel="noopener" href="${waLink(r.phone, reminder(r))}">${icon('whatsapp')} فكّره</a></div>`)}</div>`
+            <button class="btn sm ghost" data-copy="${i}" data-key="c" title="انسخ رسالة التذكير">${icon('copy')}</button>
+            <a class="btn sm" data-key="w" title="فكّره على واتساب" target="_blank" rel="noopener" href="${waLink(r.phone, reminder(r))}">${icon('whatsapp')} فكّره <kbd style="background:transparent;color:#f0cdd5">W</kbd></a></div>`)}</div>`
           : empty('مفيش مواعيد قريبة', 'العملاء المزمنين كلهم واخدين علبهم'));
         body.onclick = (e) => { const b = e.target.closest('[data-copy]'); if (b) copyText(reminder(rows[+b.dataset.copy])); };
       } else if (tab === 'chronic') {
         const rows = await api.select('v_chronic_suggestions', { order: 'times.desc', limit: 60 });
         render(body, rows.length ? h`<header><div><h2>شكلهم مزمنين</h2><span class="sub">نفس الصنف 4 مرات أو أكتر بفترات منتظمة في آخر 8 شهور. سجّلهم والبرنامج يفكّرك</span></div></header>
           <div class="tbl-wrap"><table class="tbl"><thead><tr><th>العميل</th><th>الصنف</th><th class="n">مرات</th><th class="n">كل</th><th>الميعاد الجاي</th><th></th></tr></thead><tbody>
-          ${rows.map((r, i) => h`<tr><td><a href="#/customers/${r.customer_id}" style="color:inherit"><b>${r.customer}</b></a></td><td class="name"><b>${r.name_ar || r.name_en}</b><span class="en">${r.name_en}</span></td>
+          ${rows.map((r, i) => h`<tr data-row><td><a href="#/customers/${r.customer_id}" style="color:inherit"><b>${r.customer}</b></a></td><td class="name"><b>${r.name_ar || r.name_en}</b><span class="en">${r.name_en}</span></td>
             <td class="n">${r.times}</td><td class="n">${r.every_days} يوم</td><td>${dateShort(r.next_due)}</td>
-            <td><button class="btn sm ok" data-add="${i}">${icon('plus')} سجّله مزمن</button></td></tr>`)}</tbody></table></div>`
+            <td><button class="btn sm ok" data-add="${i}" data-key="a" title="سجّله مزمن">${icon('plus')} سجّله مزمن <kbd style="background:transparent;color:#fff">A</kbd></button></td></tr>`)}</tbody></table></div>`
           : empty('مفيش اقتراحات جديدة'));
         body.onclick = async (e) => {
           const b = e.target.closest('[data-add]'); if (!b) return;
@@ -49,20 +49,20 @@ export default async function customers(ctx) {
         const tot = rows.reduce((s, r) => s + Number(r.balance), 0);
         render(body, h`<header><div><h2>على العملاء ${money(tot)} ج</h2><span class="sub">${rows.length} عميل · ${rows.filter((r) => r.over_limit).length} عدّوا الحد</span></div></header>
           ${rows.length ? h`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>العميل</th><th class="n">عليه</th><th>من الحد</th><th>آخر دفعة</th><th></th></tr></thead><tbody>
-          ${rows.map((r, i) => { const used = Number(r.credit_limit) ? Number(r.balance) / Number(r.credit_limit) : 1; return h`<tr><td><a href="#/customers/${r.id}" style="color:inherit"><b>${r.name}</b></a><div class="muted ltr" style="font-size:12px;text-align:right">${r.phone || ''}</div></td>
+          ${rows.map((r, i) => { const used = Number(r.credit_limit) ? Number(r.balance) / Number(r.credit_limit) : 1; return h`<tr data-row><td><a href="#/customers/${r.id}" style="color:inherit"><b>${r.name}</b></a><div class="muted ltr" style="font-size:12px;text-align:right">${r.phone || ''}</div></td>
             <td class="n"><b>${money(r.balance)}</b></td><td style="min-width:150px"><div class="meter"><i class="${used > 1 ? 'bad' : used > 0.8 ? 'warn' : ''}" style="width:${Math.min(100, used * 100)}%"></i></div><span class="muted" style="font-size:12px">الحد ${money(r.credit_limit)}</span></td>
             <td>${r.last_payment ? ago(r.last_payment) : h`<span class="pill p-warn">مادفعش قبل كده</span>`}</td>
-            <td><button class="btn sm" data-pay="${i}">${icon('wallet')} حصّل</button></td></tr>`; })}</tbody></table></div>` : empty('مفيش ديون على حد')}`);
+            <td><button class="btn sm" data-pay="${i}" data-key="p" title="حصّل منه">${icon('wallet')} حصّل <kbd style="background:transparent;color:#f0cdd5">P</kbd></button></td></tr>`; })}</tbody></table></div>` : empty('مفيش ديون على حد')}`);
         body.onclick = (e) => { const b = e.target.closest('[data-pay]'); if (b) { const r = rows[+b.dataset.pay]; collect(ctx, { id: r.id, name: r.name, balance: r.balance }, show); } };
       } else {
-        render(body, h`<div class="search" style="margin-bottom:12px">${icon('search')}<input class="input" id="cs" placeholder="اسم أو رقم موبايل"></div><div id="cl"></div>`);
+        render(body, h`<div class="search" style="margin-bottom:12px">${icon('search')}<input class="input" id="cs" data-search placeholder="اسم أو رقم موبايل ( / )"></div><div id="cl"></div>`);
         const cl = $('#cl', body);
         const run = async (t) => {
           const p = { order: 'name', limit: 60, active: 'eq.true' };
           const d = t.replace(/\D/g, '');
           if (t) p.or = d.length >= 3 ? `(phone.like.*${d}*)` : `(name.ilike.*${t.replace(/[(),*]/g, ' ')}*)`;
           const rows = await api.select('v_customer_pick', p);
-          render(cl, rows.length ? h`<div class="list">${rows.map((c) => h`<a class="li" href="#/customers/${c.id}" style="text-decoration:none;color:inherit"><span class="avatar" style="background:var(--crimson-100);color:var(--accent-ink)">${c.name.slice(0, 1)}</span><div class="grow"><b>${c.name}</b><span class="muted ltr" style="font-size:13px">${c.phone || ''}</span></div>${Number(c.balance) > 0 ? h`<span class="pill p-warn">عليه ${money(c.balance)}</span>` : ''}</a>`)}</div>` : empty('مفيش عميل بالاسم ده'));
+          render(cl, rows.length ? h`<div class="list">${rows.map((c) => h`<a class="li" data-row href="#/customers/${c.id}" style="text-decoration:none;color:inherit"><span class="avatar" style="background:var(--crimson-100);color:var(--accent-ink)">${c.name.slice(0, 1)}</span><div class="grow"><b>${c.name}</b><span class="muted ltr" style="font-size:13px">${c.phone || ''}</span></div>${Number(c.balance) > 0 ? h`<span class="pill p-warn">عليه ${money(c.balance)}</span>` : ''}</a>`)}</div>` : empty('مفيش عميل بالاسم ده'));
         };
         let t; $('#cs', body).addEventListener('input', (e) => { clearTimeout(t); t = setTimeout(() => run(e.target.value.trim()), 200); });
         run('');
@@ -111,9 +111,9 @@ async function customerPage(ctx, id) {
   const visits = new Set(sales.map((s) => s.at.slice(0, 10))).size;
   const used = Number(c.credit_limit) ? Number(c.balance) / Number(c.credit_limit) : 0;
   render(el, h`
-    <div class="head"><div><a href="#/customers/all" class="muted" style="text-decoration:none;font-size:14px">${icon('back', 'icon-sm')} العملاء</a>
+    <div class="head"><div><a href="#/customers/all" data-back class="muted" style="text-decoration:none;font-size:14px">${icon('back', 'icon-sm')} العملاء</a>
       <h1 style="margin-top:4px">${c.name}</h1><p class="ltr" style="text-align:right">${c.phone || ''}${c.area ? ' · ' + c.area : ''}</p></div>
-      <div class="actions"><button class="btn" id="pay">${icon('wallet')} حصّل</button><a class="btn quiet" target="_blank" rel="noopener" href="${waLink(c.phone, 'أهلًا ' + c.name.split(' ')[0] + '، معاك صيدلية عسكر')}">${icon('whatsapp')} واتساب</a></div></div>
+      <div class="actions"><button class="btn" id="pay" data-hot="alt+p">${icon('wallet')} حصّل <kbd style="background:transparent;color:#f0cdd5">Alt+P</kbd></button><a class="btn quiet" data-hot="alt+w" target="_blank" rel="noopener" href="${waLink(c.phone, 'أهلًا ' + c.name.split(' ')[0] + '، معاك صيدلية عسكر')}">${icon('whatsapp')} واتساب</a></div></div>
     <section class="grid g4">
       <div class="card kpi hero"><div class="l">${icon('wallet')} عليه</div><div class="v">${money(c.balance)}<small>ج</small></div><div class="f">الحد ${money(c.credit_limit)}</div></div>
       <div class="card kpi"><div class="l">${icon('receipt')} اشترى بـ</div><div class="v">${moneyR(spent)}<small>ج</small></div><div class="f">آخر ${sales.length} فاتورة</div></div>

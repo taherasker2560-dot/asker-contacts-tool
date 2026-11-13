@@ -5,7 +5,7 @@ import { h, render, $, $$, icon, money, num, int, qty, dateTime, ago, skeleton, 
 export default async function orders({ el, api, can }) {
   render(el, h`
     <div class="head"><div><h1>الطلبيات الذكية</h1><p>كل ناقص راح لأحسن مورد ليه. عدّل الكمية لو حابب، وابعت بنفسك.</p></div>
-      <div class="actions"><button class="btn quiet" id="rf">${icon('refresh')} تحديث</button></div></div>
+      <div class="actions"><button class="btn quiet" id="rf" data-hot="alt+r">${icon('refresh')} تحديث</button></div></div>
     <section class="grid g3" id="k"></section>
     <section id="groups" style="margin-top:16px">${skeleton(6)}</section>
     <section class="card" style="margin-top:16px"><header><h2>آخر الطلبيات اللي اتبعتت</h2></header><div class="list" id="hist">${skeleton(3)}</div></section>`);
@@ -38,20 +38,20 @@ export default async function orders({ el, api, can }) {
       <div class="card kpi"><div class="l">${icon('check')} اتطلب النهارده</div><div class="v">${int(done.length)}<small>صنف</small></div><div class="f">${done.slice(0, 2).map((d) => d.name_ar || d.name_en).join('، ') || '—'}</div></div>
       <div class="card kpi"><div class="l">${icon('sparkle')} فرق أحسن عرض عن التاني</div><div class="v">${num(gapAvg.toFixed(1))}<small>%</small></div><div class="f">في المتوسط: ده اللي بتكسبه لما تطلب من الأحسن</div></div>`);
     render($('#groups', el), groups.length ? h`<div class="grid g2">${groups.map((g, gi) => h`
-      <div class="card" data-g="${gi}"><header><div><h2>${g.name}</h2><span class="sub">${g.rows.length} صنف${g.id ? '' : ' · اختار المورد بنفسك'}</span></div>
+      <div class="card" data-g="${gi}" data-group><header><div><h2>${g.name}</h2><span class="sub">${g.rows.length} صنف${g.id ? '' : ' · اختار المورد بنفسك'}</span></div>
         ${g.id ? h`<span class="pill p-good plain">${icon('sparkle', 'icon-sm')} أحسن خصم</span>` : h`<span class="pill p-muted plain">مفيش عروض</span>`}</header>
         <div class="tbl-wrap"><table class="tbl"><thead><tr><th>الصنف</th><th class="n">عندنا</th><th class="n">اتباع 30 يوم</th><th class="n">الخصم</th><th class="n">الكمية</th><th></th></tr></thead><tbody>
-        ${g.rows.map((r, ri) => h`<tr><td class="name"><b>${r.name_ar || r.name_en}</b><span class="en">${r.name_en}</span></td>
+        ${g.rows.map((r, ri) => h`<tr data-row><td class="name"><b>${r.name_ar || r.name_en}</b><span class="en">${r.name_en}</span></td>
           <td class="n">${Number(r.onhand_units) > 0 ? qty(r.onhand_units, r.pack_parts) : h`<span class="pill p-bad">صفر</span>`}</td>
           <td class="n">${qty(r.sold_30d_units, r.pack_parts)}</td>
           <td class="n">${r.best_pct != null ? h`<b>${num(r.best_pct)}%</b>${r.gap_pct != null && Number(r.gap_pct) > 0 ? h`<div class="muted" style="font-size:12px">+${num(r.gap_pct)} عن التاني</div>` : ''}` : '—'}</td>
           <td class="n"><input class="input num" type="number" min="0" step="1" value="${r.packs}" data-q="${gi}:${ri}" style="width:72px;height:34px;text-align:center"></td>
-          <td><button class="btn sm quiet" data-x="${gi}:${ri}" title="مش دلوقتي">×</button></td></tr>`)}
+          <td><button class="btn sm quiet" data-x="${gi}:${ri}" data-key="Delete" title="مش دلوقتي">×</button></td></tr>`)}
         </tbody></table></div>
         <div class="row wrap" style="margin-top:12px">
-          <button class="btn sm ghost" data-copy="${gi}">${icon('copy')} انسخ الرسالة</button>
-          <a class="btn sm quiet" data-wa="${gi}" target="_blank" rel="noopener" href="#">${icon('whatsapp')} افتح واتساب</a>
-          ${g.id && can(['owner', 'manager', 'pharmacist']) ? h`<button class="btn sm ok" data-mark="${gi}" style="margin-inline-start:auto">${icon('check')} اتطلبت</button>` : ''}</div></div>`)}</div>`
+          <button class="btn sm ghost" data-copy="${gi}" data-key="c" title="انسخ رسالة الطلبية">${icon('copy')} انسخ الرسالة <kbd>C</kbd></button>
+          <a class="btn sm quiet" data-wa="${gi}" data-key="w" title="افتح واتساب المورد" target="_blank" rel="noopener" href="#">${icon('whatsapp')} افتح واتساب <kbd>W</kbd></a>
+          ${g.id && can(['owner', 'manager', 'pharmacist']) ? h`<button class="btn sm ok" data-mark="${gi}" data-key="m" title="علّم الطلبية «اتطلبت»" style="margin-inline-start:auto">${icon('check')} اتطلبت <kbd style="background:transparent;color:#fff">M</kbd></button>` : ''}</div></div>`)}</div>`
       : h`<div class="card">${empty('مفيش نواقص', 'كل الأصناف فوق حدها الأدنى. برافو')}</div>`);
     $$('[data-wa]', el).forEach((a) => { const g = groups[+a.dataset.wa]; a.href = waLink(g.phone, message(g)); });
 

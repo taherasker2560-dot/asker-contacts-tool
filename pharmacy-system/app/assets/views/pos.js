@@ -1,6 +1,9 @@
 // الكاشير: كل حاجة بالكيبورد. باركود أو جزء من الاسم ← Enter ← الصنف في الفاتورة (بصوت). Ctrl+Enter = خلّص.
 // القاعدة هي اللي بتختار التشغيلة (الأقرب صلاحية) وبتحسب السعر الفعلي، والشاشة بتعرض تقدير لحد ما الفاتورة تترحّل.
 import { h, render, $, $$, icon, money, moneyR, int, qty, dateMY, dateTime, toast, modal, beep, debounce, esc, expiryPill, confirmBox } from '../ui.js';
+import { POS_KEYS, combo, typing } from '../kbd.js';
+
+export const keys = POS_KEYS;   // للدليل (F1)
 
 const PARK = 'asker.parked';
 const METHODS = [
@@ -9,7 +12,7 @@ const METHODS = [
 ];
 
 export default async function pos({ el, api, state }) {
-  let cart = [], customer = null, method = 'cash', shift = null, results = [], sel = 0, seq = 0, mult = 1, busy = false;
+  let cart = [], customer = null, method = 'cash', shift = null, results = [], sel = 0, seq = 0, mult = 1, busy = false, csel = -1, cIdx = 0;
   const parked = () => { try { return JSON.parse(localStorage.getItem(PARK)) || []; } catch (e) { return []; } };
   const saveParked = (l) => { try { localStorage.setItem(PARK, JSON.stringify(l)); } catch (e) {} };
 
@@ -24,8 +27,9 @@ export default async function pos({ el, api, state }) {
           <input class="input" id="q" placeholder="امسح الباركود أو اكتب الاسم (عربي أو إنجليزي)… 3* قبل الباركود = 3 علب" autocomplete="off" aria-label="بحث الصنف">
           <div class="results" id="res" hidden></div></div>
         <div class="card cart" id="cart"></div>
-        <div class="keys"><span><kbd>F2</kbd> البحث</span><span><kbd>+</kbd><kbd>−</kbd> كمية آخر صنف</span><span><kbd>Del</kbd> شيل آخر صنف</span>
-          <span><kbd>F8</kbd> كاش</span><span><kbd>F9</kbd> آجل</span><span><kbd>F6</kbd> علّق الفاتورة</span><span><kbd>Ctrl</kbd>+<kbd>Enter</kbd> خلّص</span></div>
+        <div class="keys"><span><kbd>F2</kbd> البحث</span><span><kbd>↑</kbd><kbd>↓</kbd> أصناف الفاتورة</span><span><kbd>+</kbd><kbd>−</kbd> الكمية</span><span><kbd>*</kbd> علبة/شريط</span><span><kbd>Del</kbd> شيل</span>
+          <span><kbd>Alt+C</kbd> العميل</span><span><kbd>Alt+X</kbd> خصم</span><span><kbd>F8</kbd> كاش</span><span><kbd>F9</kbd> آجل</span><span><kbd>F10</kbd> فيزا</span>
+          <span><kbd>Alt+P</kbd> علّق</span><span><kbd>Alt+L</kbd> آخر فاتورة</span><span><kbd>Ctrl</kbd>+<kbd>Enter</kbd> خلّص</span><span><kbd>F1</kbd> كل الاختصارات</span></div>
       </section>
       <aside class="register" id="reg" aria-label="الحساب"></aside>
     </div>`);
@@ -40,14 +44,14 @@ export default async function pos({ el, api, state }) {
     const box = $('#shift', el);
     if (!shift) {
       render(box, h`<span class="ico i-gold">${icon('cash')}</span><div style="flex:1"><b>مفيش وردية مفتوحة باسمك</b><div class="muted" style="font-size:13px">افتح وردية عشان الكاش يدخل درجك ويتقفل عليك آخر اليوم</div></div>
-        <button class="btn gold" id="open-shift">${icon('plus')} افتح وردية</button>`);
+        <button class="btn gold" id="open-shift" data-hot="alt+o">${icon('plus')} افتح وردية <kbd>Alt+O</kbd></button>`);
       $('#open-shift', box).addEventListener('click', openShift);
       return;
     }
     render(box, h`<span class="ico i-good">${icon('cash')}</span>
       <div style="flex:1"><b>${shift.account} · وردية رقم ${shift.id}</b><div class="muted" style="font-size:13px">من ${dateTime(shift.opened_at)} · ${int(shift.sales_count)} فاتورة</div></div>
       <div style="text-align:end"><div class="muted" style="font-size:12px">المفروض في الدرج</div><b style="font-family:var(--f-display);font-size:20px">${money(shift.expected_cash)}</b></div>
-      <button class="btn quiet sm" id="close-shift">اقفل الوردية</button>`);
+      <button class="btn quiet sm" id="close-shift" data-hot="alt+o">اقفل الوردية <kbd>Alt+O</kbd></button>`);
     $('#close-shift', box).addEventListener('click', closeShift);
   }
   async function openShift() {
@@ -111,11 +115,19 @@ export default async function pos({ el, api, state }) {
   }
   const onType = debounce(() => lookup(q.value), 110);
   q.addEventListener('input', onType);
+  const target = () => (csel >= 0 && csel < cart.length ? csel : cart.length - 1);
+  function selLine(i) { csel = Math.max(-1, Math.min(cart.length - 1, i)); draw(); const n = $$('.cart-line', el)[csel]; if (n) n.scrollIntoView({ block: 'nearest' }); }
   q.addEventListener('keydown', async (e) => {
-    if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(results.length - 1, sel + 1); drawResults(); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(0, sel - 1); drawResults(); }
-    else if (e.key === 'Escape') { q.value = ''; results = []; drawResults(); }
-    else if (e.key === 'Enter' && !e.ctrlKey) {
+    const c = combo(e), open = !resBox.hidden && results.length;
+    if (c === 'ArrowDown' || c === 'ArrowUp') {
+      e.preventDefault();
+      if (open) { sel = c === 'ArrowDown' ? Math.min(results.length - 1, sel + 1) : Math.max(0, sel - 1); drawResults(); }
+      else if (!q.value && cart.length) selLine(csel < 0 ? (c === 'ArrowDown' ? 0 : cart.length - 1) : csel + (c === 'ArrowDown' ? 1 : -1));
+    } else if (c === 'Escape') {
+      if (q.value) { q.value = ''; results = []; drawResults(); e.preventDefault(); e.stopPropagation(); }
+      else if (csel >= 0) { selLine(-1); e.preventDefault(); e.stopPropagation(); }
+    } else if (c === 'Alt+KeyB' && open) { e.preventDefault(); showAlts(results[sel].id); }
+    else if (c === 'Enter') {
       e.preventDefault();
       if (!q.value.trim()) return;
       // الباركود بيتكتب بسرعة وبعده Enter على طول: ندوّر دلوقتي من غير ما نستنى
@@ -124,9 +136,11 @@ export default async function pos({ el, api, state }) {
       if (isCode || !r.length) r = await lookup(q.value) || [];
       const pick = isCode ? (r.find((x) => x.exact) || (r.length === 1 ? r[0] : null)) : r[sel];
       if (pick) add(pick, mult); else { beep(false); toast('مالقيتش الصنف ده', 'bad'); }
-    } else if ((e.key === '+' || e.key === '-') && !q.value && cart.length) {
-      e.preventDefault(); bump(cart.length - 1, e.key === '+' ? 1 : -1);
-    } else if (e.key === 'Delete' && !q.value && cart.length) { e.preventDefault(); cart.pop(); draw(); }
+    } else if (!q.value && cart.length && (c === 'Equal' || c === 'Shift+Equal' || c === 'NumpadAdd' || c === 'Minus' || c === 'NumpadSubtract')) {
+      e.preventDefault(); bump(target(), /Add|Equal/.test(c) ? 1 : -1);
+    } else if (!q.value && cart.length && (c === 'Shift+Digit8' || c === 'NumpadMultiply')) {
+      e.preventDefault(); const l = cart[target()]; if (l.item.sell_by_unit && Number(l.item.pack_parts) > 1) { l.mode = l.mode === 'pack' ? 'unit' : 'pack'; draw(); } else toast('الصنف ده مابيتباعش بالشريط');
+    } else if (!q.value && cart.length && c === 'Delete') { e.preventDefault(); cart.splice(target(), 1); if (csel >= cart.length) csel = cart.length - 1; draw(); }
   });
   resBox.addEventListener('mousedown', (e) => {
     const alt = e.target.closest('[data-alt]');
@@ -160,11 +174,11 @@ export default async function pos({ el, api, state }) {
     const ex = cart.find((l) => l.item.id === it.id && l.mode === mode);
     if (ex) ex.qty += n; else cart.push({ item: it, qty: n, mode });
     if (Number(it.onhand_units) <= 0) { beep(false); toast(`${it.name_ar || it.name_en}: الرصيد صفر، هتحتاج تأكد`, 'bad'); } else beep(true);
-    q.value = ''; results = []; mult = 1; drawResults(); draw(); q.focus();
+    q.value = ''; results = []; mult = 1; csel = -1; drawResults(); draw(); q.focus();
   }
   const lineUnits = (l) => l.qty * (l.mode === 'pack' ? Number(l.item.pack_parts || 1) : 1);
   const lineTotal = (l) => Math.round(lineUnits(l) * unitPrice(l.item) * 100) / 100;
-  function bump(i, d) { const l = cart[i]; l.qty = Math.max(0, Math.round((l.qty + d) * 100) / 100); if (!l.qty) cart.splice(i, 1); draw(); }
+  function bump(i, d) { const l = cart[i]; l.qty = Math.max(0, Math.round((l.qty + d) * 100) / 100); if (!l.qty) { cart.splice(i, 1); if (csel >= cart.length) csel = cart.length - 1; } draw(); }
 
   function draw() {
     const box = $('#cart', el);
@@ -174,7 +188,7 @@ export default async function pos({ el, api, state }) {
       render(box, h`${cart.map((l, i) => {
         const it = l.item, over = lineUnits(l) > Number(it.onhand_units);
         const canUnit = it.sell_by_unit && Number(it.pack_parts) > 1;
-        return h`<div class="cart-line">
+        return h`<div class="cart-line ${i === csel ? 'kb-sel' : ''}">
           <div class="nm"><b>${it.name_ar || it.name_en}</b><span class="en">${it.name_en}</span>
             <div class="meta">${it.is_controlled ? h`<span class="pill p-bad plain">جدول: محتاج بيانات الروشتة</span>` : ''}${it.needs_rx && !it.is_controlled ? h`<span class="pill p-info plain">روشتة</span>` : ''}
               ${over ? h`<span class="pill p-bad">الموجود ${qty(it.onhand_units, it.pack_parts, it.pack_name, it.unit_name)} بس</span>` : h`<span class="pill p-muted plain">${money(it.price_pack)} ج/${it.pack_name || 'علبة'}</span>`}
@@ -213,17 +227,17 @@ export default async function pos({ el, api, state }) {
       <div class="total"><small>المطلوب</small><b id="tot">${money(total)}</b><small>${int(cart.length)} صنف · ${units} قطعة</small></div>
       <div class="rows">
         <div class="row"><span>الإجمالي</span><span class="num">${money(subtotal())}</span></div>
-        <div class="row"><span>خصم</span><input class="input num" id="disc" type="number" min="0" step="0.5" value="${disc || ''}" placeholder="0" style="width:110px;height:34px;text-align:center"></div>
+        <div class="row"><span>خصم</span><input class="input num" id="disc" data-hot="alt+x" type="number" min="0" step="0.5" value="${disc || ''}" placeholder="0" style="width:110px;height:34px;text-align:center"></div>
       </div>
       <div class="field" style="position:relative"><label style="color:#e9c3cb">العميل</label>
-        ${customer ? h`<div class="cust-box"><div class="row between"><b>${customer.name}</b><button class="btn sm quiet" id="unc" style="color:#fff;border-color:rgba(255,255,255,.25)">تغيير</button></div>
+        ${customer ? h`<div class="cust-box"><div class="row between"><b>${customer.name}</b><button class="btn sm quiet" id="unc" data-hot="alt+c" style="color:#fff;border-color:rgba(255,255,255,.25)">تغيير <kbd style="background:transparent;color:#f0cdd5">Alt+C</kbd></button></div>
             <div class="row between" style="font-size:13px;color:#e9c3cb;margin-top:4px"><span>عليه ${money(customer.balance)}</span><span>الحد ${money(customer.credit_limit)}</span></div>
             <div class="meter"><i class="${Number(customer.balance) / Math.max(1, Number(customer.credit_limit)) > 0.85 ? 'bad' : 'warn'}" style="width:${Math.min(100, (Number(customer.balance) / Math.max(1, Number(customer.credit_limit))) * 100)}%"></i></div>
             <div id="cref"></div></div>`
-          : h`<input class="input" id="cq" placeholder="اسم أو موبايل (اختياري، لازم للآجل)" autocomplete="off"><div class="results" id="cres" hidden style="color:var(--ink)"></div>`}
+          : h`<input class="input" id="cq" data-hot="alt+c" placeholder="اسم أو موبايل (Alt+C) — لازم للآجل" autocomplete="off"><div class="results" id="cres" hidden style="color:var(--ink)"></div>`}
       </div>
       <div class="pay">${METHODS.map((m) => h`<button data-m="${m.code}" class="${method === m.code ? 'on' : ''}">${m.label}<small>${m.key}</small></button>`)}</div>
-      ${method === 'cash' ? h`<div class="rows"><div class="row"><span>المستلم</span><input class="input num" id="tend" type="number" min="0" value="${tendered}" placeholder="${moneyR(total)}" style="width:130px;height:38px;text-align:center"></div>
+      ${method === 'cash' ? h`<div class="rows"><div class="row"><span>المستلم</span><input class="input num" id="tend" data-hot="alt+r" type="number" min="0" value="${tendered}" placeholder="${moneyR(total)}" style="width:130px;height:38px;text-align:center"></div>
           <div class="chips" style="justify-content:flex-end">${[...new Set([Math.ceil(total / 10) * 10, Math.ceil(total / 50) * 50, Math.ceil(total / 100) * 100, Math.ceil(total / 200) * 200])].filter((v) => v > 0).slice(0, 4).map((v) => h`<button class="chip" data-t="${v}" style="background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.2)">${v}</button>`)}</div>
           ${tendered && Number(tendered) >= total ? h`<div class="row" style="font-size:18px"><span>الباقي للعميل</span><b style="color:var(--gold-300);font-family:var(--f-display);font-size:26px">${money(Number(tendered) - total)}</b></div>` : ''}</div>` : ''}
       ${method === 'credit' ? h`<div class="rows"><div class="row"><span>دفع كاش دلوقتي</span><input class="input num" id="part" type="number" min="0" value="${paidPart}" placeholder="0" style="width:120px;height:38px;text-align:center"></div>
@@ -259,9 +273,21 @@ export default async function pos({ el, api, state }) {
       custRows = await api.select('v_customer_pick', { active: 'eq.true', or: digits.length >= 3 ? `(phone.like.*${digits}*)` : `(name.ilike.*${t.replace(/[(),*]/g, ' ')}*)`, limit: 6 });
     } catch (e) { custRows = []; }
     box.hidden = !custRows.length;
-    render(box, h`${custRows.map((c, i) => h`<div class="res" data-c="${i}" style="grid-template-columns:1fr auto"><div><b>${c.name}</b><span class="en">${c.phone || ''} ${c.area ? '· ' + c.area : ''}</span></div>
+    cIdx = 0;
+    render(box, h`${custRows.map((c, i) => h`<div class="res ${i === 0 ? 'on' : ''}" data-c="${i}" style="grid-template-columns:1fr auto"><div><b>${c.name}</b><span class="en">${c.phone || ''} ${c.area ? '· ' + c.area : ''}</span></div>
       <div class="stock">${Number(c.balance) > 0 ? h`<span class="pill p-warn">عليه ${money(c.balance)}</span>` : h`<span class="pill p-good">مفيش عليه</span>`}</div></div>`)}`);
   }, 160);
+  // العميل بالكيبورد: ↑ ↓ Enter
+  reg.addEventListener('keydown', (e) => {
+    if (e.target.id === 'cq') {
+      const box = reg.querySelector('#cres'); if (!box || box.hidden || !custRows.length) return;
+      if (e.code === 'ArrowDown' || e.code === 'ArrowUp') { e.preventDefault(); cIdx = Math.max(0, Math.min(custRows.length - 1, cIdx + (e.code === 'ArrowDown' ? 1 : -1))); $$('#cres .res', reg).forEach((r, i) => r.classList.toggle('on', i === cIdx)); }
+      else if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); customer = custRows[cIdx]; drawReg(); q.focus(); }
+      else if (e.code === 'Escape') { box.hidden = true; e.preventDefault(); e.stopPropagation(); q.focus(); }
+    } else if ((e.target.id === 'tend' || e.target.id === 'part' || e.target.id === 'disc') && (e.code === 'Enter' || e.code === 'NumpadEnter') && !e.ctrlKey) {
+      e.preventDefault(); pay();   // من خانة المستلم/الخصم: Enter = خلّص
+    }
+  });
   reg.addEventListener('mousedown', (e) => {
     const r = e.target.closest('[data-c]'); if (!r) return;
     e.preventDefault(); customer = custRows[+r.dataset.c]; drawReg(); q.focus();
@@ -310,6 +336,8 @@ export default async function pos({ el, api, state }) {
       if (method !== 'credit' && Number(r.on_credit) > 0) toast(`السعر الفعلي أعلى: اتسجل ${money(r.on_credit)} ج على حساب العميل`, 'bad');
       busy = false;
       reset();
+      lastSale = { r, snap: { customer: snapshot.customer ? { name: snapshot.customer.name } : null, method: snapshot.method, tendered: snapshot.tendered } };
+      try { localStorage.setItem('asker.lastSale', JSON.stringify(lastSale)); } catch (er) {}
       receipt(r, snapshot);
       loadShift();
     } catch (e) {
@@ -320,7 +348,7 @@ export default async function pos({ el, api, state }) {
       } else { drawReg(); toast(e.message, 'bad'); beep(false); }
     }
   }
-  function reset() { cart = []; customer = null; method = 'cash'; draw(); q.focus(); }
+  function reset() { cart = []; customer = null; method = 'cash'; csel = -1; draw(); q.focus(); }
 
   function askRx() {
     return new Promise((resolve) => {
@@ -340,6 +368,7 @@ export default async function pos({ el, api, state }) {
     });
   }
 
+  let lastSale = null; try { lastSale = JSON.parse(localStorage.getItem('asker.lastSale')); } catch (e) {}
   async function receipt(r, snap) {
     let lines = [], head = null;
     try {
@@ -364,10 +393,10 @@ export default async function pos({ el, api, state }) {
         <div style="min-width:220px;text-align:center;align-self:center">
           ${change ? h`<div class="muted">الباقي للعميل</div><div style="font-family:var(--f-display);font-size:48px;color:var(--accent-ink);line-height:1.1">${money(change)}</div>` : h`<div class="ico i-good" style="margin:0 auto 10px;width:64px;height:64px">${icon('check')}</div>`}
           <p class="muted">${r.repeat ? 'الفاتورة دي كانت متسجلة قبل كده (مااتسجلتش مرتين)' : 'المخزون والحسابات اتحدّثوا'}</p></div></div>`,
-      footer: h`<button class="btn quiet" id="pr">${icon('printer')} اطبع</button><button class="btn" data-close autofocus>فاتورة جديدة <kbd style="background:transparent;color:#f0cdd5;border-color:rgba(255,255,255,.3)">Enter</kbd></button>`,
+      footer: h`<button class="btn quiet" id="pr">${icon('printer')} اطبع <kbd>P</kbd></button><button class="btn" data-close autofocus>فاتورة جديدة <kbd style="background:transparent;color:#f0cdd5;border-color:rgba(255,255,255,.3)">Enter</kbd></button>`,
       wide: true, onClose: () => q.focus() });
     $('#pr', m.el).addEventListener('click', () => window.print());
-    m.el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); m.close(); } });
+    m.el.addEventListener('keydown', (e) => { if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); m.close(); } else if (e.code === 'KeyP' || (e.ctrlKey && e.code === 'KeyP')) { e.preventDefault(); window.print(); } });
   }
 
   // ------------------------------------------------------------ تعليق الفاتورة (العميل بيدوّر على حاجة) وصندوق الصادر
@@ -378,7 +407,7 @@ export default async function pos({ el, api, state }) {
   }
   function drawPark() {
     const l = parked();
-    render($('#parkbar', el), h`${l.map((p) => h`<button class="btn quiet sm" data-park="${p.id}">${icon('pause')} معلّقة · ${p.cart.length} صنف · ${moneyR(p.cart.reduce((s, x) => s + lineTotal(x), 0))} ج</button>`)}<button class="btn ghost sm" id="park">${icon('pause')} علّق <kbd>F6</kbd></button>`);
+    render($('#parkbar', el), h`${l.map((p) => h`<button class="btn quiet sm" data-park="${p.id}">${icon('pause')} معلّقة · ${p.cart.length} صنف · ${moneyR(p.cart.reduce((s, x) => s + lineTotal(x), 0))} ج</button>`)}<button class="btn ghost sm" id="park" data-hot="alt+p">${icon('pause')} علّق <kbd>Alt+P</kbd></button>`);
   }
   $('#parkbar', el).addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
@@ -399,16 +428,20 @@ export default async function pos({ el, api, state }) {
 
   // ------------------------------------------------------------ الكيبورد
   const onKey = (e) => {
-    if (document.querySelector('.modal')) return;
-    const k = e.key;
-    if (k === 'F2') { e.preventDefault(); q.focus(); q.select(); }
-    else if (k === 'F8' || k === 'F9' || k === 'F10' || k === 'F11') { e.preventDefault(); method = { F8: 'cash', F9: 'credit', F10: 'card', F11: 'wallet' }[k]; drawReg(); }
-    else if (k === 'F6') { e.preventDefault(); park(); }
-    else if ((k === 'Enter' && (e.ctrlKey || e.metaKey)) || k === 'F12') { e.preventDefault(); pay(); }
+    if (document.querySelector('.modal') || document.querySelector('.kb-hints')) return;
+    const c = combo(e), M = { F8: 'cash', F9: 'credit', F10: 'card', 'Shift+F8': 'wallet' };
+    const stop = () => { e.preventDefault(); e.stopPropagation(); };
+    if (c === 'F2') { stop(); csel = -1; draw(); q.focus(); q.select(); }
+    else if (c === 'F5') { stop(); loadShift(); drawOutbox(); toast('اتحدّث ✓ (الفاتورة زي ما هي)'); }
+    else if (M[c]) { stop(); method = M[c]; drawReg(); const t = reg.querySelector(method === 'cash' ? '#tend' : '#part'); if (!typing(document.activeElement) || document.activeElement === q) q.focus(); }
+    else if (c === 'F6' || c === 'Alt+KeyP') { stop(); park(); }
+    else if (c === 'Alt+Shift+KeyP') { stop(); const l = parked(); if (!l.length) return toast('مفيش فواتير معلّقة'); const p = l[l.length - 1]; saveParked(l.slice(0, -1)); if (cart.length) { const all = parked(); all.push({ id: Date.now(), at: new Date().toISOString(), cart, customer }); saveParked(all); } cart = p.cart; customer = p.customer; csel = -1; draw(); drawPark(); q.focus(); }
+    else if (c === 'Alt+KeyL') { stop(); if (lastSale) receipt(lastSale.r, lastSale.snap); else toast('لسه مفيش فواتير من الجهاز ده'); }
+    else if (c === 'Ctrl+Enter' || c === 'Ctrl+NumpadEnter') { stop(); pay(); }
   };
-  document.addEventListener('keydown', onKey);
+  document.addEventListener('keydown', onKey, true);
 
   draw(); drawPark(); drawOutbox(); loadShift();
   setTimeout(() => q.focus(), 50);
-  return () => document.removeEventListener('keydown', onKey);
+  return () => document.removeEventListener('keydown', onKey, true);
 }

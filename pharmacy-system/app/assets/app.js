@@ -1,6 +1,7 @@
 // صيدلية عسكر — الشاشات. صفحة واحدة: الدخول، الهيكل (القائمة + البحث فوق كل حاجة)، والتنقل بين الشاشات.
 import * as api from './api.js';
 import { h, raw, esc, render, $, $$, icon, toast, modal, modalOpen, initials, debounce, money, qty, dateLong, time } from './ui.js';
+import { initKeyboard, guide } from './kbd.js';
 
 const root = document.getElementById('root');
 
@@ -21,7 +22,7 @@ export const ROUTES = [
 ];
 const ROLE_AR = { owner: 'المالك', manager: 'المدير', pharmacist: 'صيدلي', cashier: 'كاشير', delivery: 'دليفري', bot: 'البوت' };
 
-export const state = { user: null, settings: null, dash: null, cleanup: null };
+export const state = { user: null, settings: null, dash: null, cleanup: null, view: null };
 export const can = (roles) => !!state.user && roles.includes(state.user.role);
 export const go = (hash) => { if (location.hash === hash) route(); else location.hash = hash; };
 
@@ -84,11 +85,12 @@ async function boot() {
 }
 
 function navLinks() {
-  let grp = '', out = '';
+  let grp = '', out = '', n = 0;
   for (const r of ROUTES) {
     if (!can(r.roles)) continue;
     if (r.grp !== grp) { grp = r.grp; out += `<div class="grp">${esc(grp)}</div>`; }
-    out += String(h`<a href="#/${r.path}" data-path="${r.path}">${icon(r.icon)}<span>${r.label}</span>${r.badge ? h`<span class="badge" data-badge="${r.badge}" hidden></span>` : ''}</a>`);
+    n++;
+    out += String(h`<a href="#/${r.path}" data-path="${r.path}" title="Alt+${n}">${icon(r.icon)}<span>${r.label}</span>${r.badge ? h`<span class="badge" data-badge="${r.badge}" hidden></span>` : ''}<kbd class="nav-k">${n}</kbd></a>`);
   }
   return raw(out);
 }
@@ -111,17 +113,19 @@ function renderShell() {
     <div class="main">
       ${demo ? h`<div class="demo-ribbon">نسخة تجريبية ببيانات وهمية — للعرض والتجربة بس</div>` : ''}
       <header class="top">
-        <button class="omni" id="omni" aria-label="ابحث أو اكتب أمر">${icon('search')}<span>دوّر على صنف، عميل، أو أمر…</span><kbd>Ctrl K</kbd></button>
+        <button class="omni" id="omni" aria-label="ابحث أو اكتب أمر">${icon('search')}<span>دوّر على صنف، عميل، أو أمر…</span><kbd>F3</kbd></button>
+        <button class="btn quiet sm kb-help" id="kbhelp" title="دليل الاختصارات">${icon('key')} الاختصارات <kbd>F1</kbd></button>
         <div class="clock" id="clock"></div>
       </header>
       <main class="page" id="page" tabindex="-1"></main>
     </div>
     <nav class="bottom-nav" aria-label="القائمة">${mobile.map((r) => h`<a href="#/${r.path}" data-path="${r.path}">${icon(r.icon)}<span>${r.label.split(' ')[0]}</span></a>`)}<a href="#" id="more">${icon('gear')}<span>المزيد</span></a></nav>
   </div>
-  <button class="fab" id="fab" title="سجّل مشكلة أو فكرة في التجربة">${icon('note')}<span>سجّل ملاحظة</span></button>`);
+  <button class="fab" id="fab" title="سجّل مشكلة أو فكرة في التجربة (Alt+N)">${icon('note')}<span>سجّل ملاحظة <kbd>Alt+N</kbd></span></button>`);
   $('#out').addEventListener('click', logout);
   $('#theme').addEventListener('click', toggleTheme);
   $('#omni').addEventListener('click', openPalette);
+  $('#kbhelp').addEventListener('click', () => guide({ routes: ROUTES, can, screenKeys: (state.view && state.view.keys) || [] }));
   $('#fab').addEventListener('click', noteDialog);
   // الموبايل: «المزيد» بيفتح القايمة كلها (التقارير والعملاء والإعدادات…)
   $('#more').addEventListener('click', (e) => {
@@ -188,6 +192,7 @@ async function route(soft) {
   try {
     const mod = viewCache[r.view] || (viewCache[r.view] = await import(`./views/${r.view}.js`));
     if (seq !== routeSeq) return;
+    state.view = mod;
     // كل شاشة في عنصر جديد: أي مستمع اتسجل على الشاشة القديمة بيتشال معاها
     page.innerHTML = '';
     const view = document.createElement('div'); page.appendChild(view);
@@ -202,13 +207,14 @@ async function route(soft) {
 
 // ---------------------------------------------------------------- لوحة الأوامر Ctrl+K
 const COMMANDS = () => [
-  ...ROUTES.filter((r) => can(r.roles)).map((r) => ({ grp: 'روح لـ', label: r.label, icon: r.icon, run: () => go('#/' + r.path), kw: r.path })),
+  ...ROUTES.filter((r) => can(r.roles)).map((r, i) => ({ grp: 'روح لـ', label: r.label, icon: r.icon, run: () => go('#/' + r.path), kw: r.path, end: 'Alt+' + (i + 1) })),
   { grp: 'أوامر', label: 'فاتورة جديدة', icon: 'receipt', run: () => go('#/pos'), kw: 'new sale بيع', roles: ALL },
   { grp: 'أوامر', label: 'جهّز طلبيات النهارده', icon: 'truck', run: () => go('#/orders'), kw: 'order طلب', roles: CLIN },
   { grp: 'أوامر', label: 'مواعيد صرف العملاء', icon: 'bell', run: () => go('#/customers'), kw: 'refill مزمن', roles: CLIN },
   { grp: 'أوامر', label: 'افحص سلامة القاعدة', icon: 'shield', run: () => go('#/settings'), kw: 'health فحص', roles: MGMT },
-  { grp: 'أوامر', label: 'سجّل ملاحظة في التجربة', icon: 'note', run: noteDialog, kw: 'note bug مشكلة', roles: ALL },
-  { grp: 'أوامر', label: 'نهاري / ليلي', icon: 'moon', run: toggleTheme, kw: 'theme dark ليل', roles: ALL },
+  { grp: 'أوامر', label: 'سجّل ملاحظة في التجربة', icon: 'note', run: noteDialog, kw: 'note bug مشكلة', roles: ALL, end: 'Alt+N' },
+  { grp: 'أوامر', label: 'نهاري / ليلي', icon: 'moon', run: toggleTheme, kw: 'theme dark ليل', roles: ALL, end: 'Alt+T' },
+  { grp: 'أوامر', label: 'دليل الاختصارات', icon: 'key', run: () => guide({ routes: ROUTES, can, screenKeys: (state.view && state.view.keys) || [] }), kw: 'keys shortcuts اختصارات كيبورد', roles: ALL, end: 'F1' },
   { grp: 'أوامر', label: 'خروج', icon: 'logout', run: logout, kw: 'logout', roles: ALL },
 ].filter((c) => !c.roles || can(c.roles));
 
@@ -269,9 +275,9 @@ export function noteDialog() {
       <div class="field"><label for="na">في أنهي جزء</label><select class="input" id="na">
         <option value="sales">البيع</option><option value="stock">المخزن</option><option value="purchases">الشرا</option><option value="accounts">الحسابات</option>
         <option value="reports">التقارير</option><option value="bot">البوت</option><option value="other" selected>حاجة تانية</option></select></div>
-      <div class="field"><label for="nt">الملاحظة</label><textarea class="input" id="nt" rows="4" required minlength="3" placeholder="مثلاً: لما بدوّر على بنادول بالعربي مش بيطلع"></textarea></div>
+      <div class="field"><label for="nt">الملاحظة</label><textarea class="input" id="nt" rows="4" required minlength="3" autofocus placeholder="مثلاً: لما بدوّر على بنادول بالعربي مش بيطلع"></textarea></div>
     </form>`,
-    footer: h`<button class="btn quiet" data-close>إلغاء</button><button class="btn" id="ns">سجّل</button>` });
+    footer: h`<span class="muted" style="margin-inline-end:auto;font-size:13px"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> سجّل · <kbd>←</kbd><kbd>→</kbd> النوع</span><button class="btn quiet" data-close>إلغاء</button><button class="btn" id="ns">سجّل</button>` });
   let sev = 'bug';
   $('#sev', m.el).addEventListener('click', (e) => { const c = e.target.closest('.chip'); if (!c) return; sev = c.dataset.v; $$('#sev .chip', m.el).forEach((x) => x.classList.toggle('on', x === c)); });
   const area = { pos: 'sales', items: 'stock', expiry: 'stock', orders: 'purchases', customers: 'accounts', suppliers: 'accounts', reports: 'reports' }[location.hash.replace(/^#\/?/, '').split('/')[0]];
@@ -284,11 +290,13 @@ export function noteDialog() {
   });
 }
 
-// ---------------------------------------------------------------- اختصارات عامة
-document.addEventListener('keydown', (e) => {
-  if (!state.user) return;
-  if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K' || e.code === 'KeyK')) { e.preventDefault(); if (!modalOpen()) openPalette(); }
-  else if (e.key === 'F2' && !modalOpen() && !location.hash.startsWith('#/pos')) { e.preventDefault(); go('#/pos'); }
+// ---------------------------------------------------------------- الكيبورد (kbd.js): البرنامج كله من غير ماوس
+initKeyboard({
+  ready: () => !!state.user && !!document.getElementById('page'),
+  go, palette: () => openPalette(), note: noteDialog, theme: toggleTheme,
+  refresh: () => { route(true); refreshBadges(); toast('اتحدّث ✓'); },
+  nav: (n) => { const r = ROUTES.filter((x) => can(x.roles))[n - 1]; if (r) go('#/' + r.path); },
+  guide: () => guide({ routes: ROUTES, can, screenKeys: (state.view && state.view.keys) || [] }),
 });
 window.addEventListener('online', () => api.outbox.flush().then((r) => { if (r.sent) toast(`الشبكة رجعت: اتبعت ${r.sent} فاتورة ✓`, 'good'); }));
 

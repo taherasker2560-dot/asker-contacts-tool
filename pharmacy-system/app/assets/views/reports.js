@@ -37,10 +37,10 @@ export default async function reports({ el, api, params, state }) {
 
   render(el, h`
     <div class="head"><div><h1>التقارير</h1><p>كل حاجة الصيدلي بيحلم يعرفها… جاهزة. اضغط على أي جدول ونزّله Excel.</p></div>
-      <div class="actions"><button class="btn gold" id="brief">${icon('sun')} ملخص الصبح</button></div></div>
-    <div class="chips" id="tabs" style="margin-bottom:10px">${TABS.map(([k, l, ic]) => h`<button class="chip ${k === tab ? 'on' : ''}" data-t="${k}">${l}</button>`)}</div>
+      <div class="actions"><button class="btn gold" id="brief" data-hot="alt+m">${icon('sun')} ملخص الصبح <kbd style="background:transparent">Alt+M</kbd></button></div></div>
+    <div class="chips" id="tabs" data-tabs style="margin-bottom:10px">${TABS.map(([k, l, ic]) => h`<button class="chip ${k === tab ? 'on' : ''}" data-t="${k}">${l}</button>`)}</div>
     <div class="card" style="padding:12px 16px;margin-bottom:16px"><div class="row wrap" style="gap:10px">
-      <div class="chips" id="per">${PERIODS.map(([k, l]) => h`<button class="chip ${k === period ? 'on' : ''}" data-p="${k}">${l}</button>`)}</div>
+      <div class="chips" id="per" data-tabs="period">${PERIODS.map(([k, l]) => h`<button class="chip ${k === period ? 'on' : ''}" data-p="${k}">${l}</button>`)}</div>
       <div class="row" style="margin-inline-start:auto;gap:6px"><input type="date" class="input" id="df" style="width:150px;height:36px"><span class="muted">لـ</span><input type="date" class="input" id="dt" style="width:150px;height:36px"></div></div></div>
     <div id="body"></div>`);
   const body = $('#body', el);
@@ -54,13 +54,13 @@ export default async function reports({ el, api, params, state }) {
   body.addEventListener('click', (e) => { const b = e.target.closest('[data-csv]'); if (b) csv(b.dataset.csv); });
 
   // ------------------------------------------------------------ أدوات
-  const card = (title, sub, inner, opts = {}) => h`<div class="card" ${opts.span ? raw(`style="grid-column:1/-1"`) : ''}><header><div><h2>${title}</h2>${sub ? h`<span class="sub">${sub}</span>` : ''}</div>${opts.csv ? h`<button class="btn sm quiet" data-csv="${opts.csv}">${icon('download', 'icon-sm')} Excel</button>` : ''}${opts.end || ''}</header>${inner}</div>`;
+  const card = (title, sub, inner, opts = {}) => h`<div class="card" data-group ${opts.span ? raw(`style="grid-column:1/-1"`) : ''}><header><div><h2>${title}</h2>${sub ? h`<span class="sub">${sub}</span>` : ''}</div>${opts.csv ? h`<button class="btn sm quiet" data-csv="${opts.csv}" data-key="x" title="نزّل الجدول ده Excel">${icon('download', 'icon-sm')} Excel</button>` : ''}${opts.end || ''}</header>${inner}</div>`;
   const table = (id, cols, rows, opts = {}) => {
     exports[id] = { cols, rows, name: opts.name || id };
     if (!rows.length) return empty(opts.empty || 'مفيش بيانات في الفترة دي');
     const shown = rows.slice(0, opts.limit || 15);
     return h`<div class="tbl-wrap"><table class="tbl"><thead><tr>${cols.map((c) => h`<th class="${c.n ? 'n' : ''}">${c.t}</th>`)}</tr></thead><tbody>
-      ${shown.map((r) => h`<tr ${opts.href ? raw(`class="click" onclick="location.hash='${opts.href(r)}'"`) : ''}>${cols.map((c) => h`<td class="${c.n ? 'n' : ''}">${c.f ? c.f(r) : r[c.k]}</td>`)}</tr>`)}
+      ${shown.map((r) => h`<tr data-row ${opts.href ? raw(`class="click" onclick="location.hash='${opts.href(r)}'"`) : ''}>${cols.map((c) => h`<td class="${c.n ? 'n' : ''}">${c.f ? c.f(r) : r[c.k]}</td>`)}</tr>`)}
       </tbody></table></div>${rows.length > shown.length ? h`<p class="muted" style="font-size:13px;margin:10px 0 0">ظاهر ${shown.length} من ${rows.length} — الكل في ملف Excel</p>` : ''}`;
   };
   const kpi = (label, ic, v, unit, foot, hero) => h`<div class="card kpi ${hero ? 'hero' : ''}"><div class="l">${icon(ic)} ${label}</div><div class="v">${v}${unit ? h`<small>${unit}</small>` : ''}</div><div class="f">${foot || ''}</div></div>`;
@@ -216,7 +216,7 @@ export default async function reports({ el, api, params, state }) {
         ${kpi('أعلى خصم فعلي', 'sparkle', best ? num(best.real_discount_pct) : '—', '%', best ? best.name : '')}
         ${kpi('كان ممكن توفّر', 'wallet', moneyR(missed), 'ج', 'لو آخر شرا لكل صنف كان من أحسن مورد ليه')}
       </section>
-      <section class="card" style="margin-top:16px"><header><div><h2>مقارنة خصومات الموردين على نفس الصنف</h2><span class="sub">آخر شرا من كل مورد في 6 شهور (الخصم الفعلي بعد البونص)</span></div><button class="btn sm quiet" data-csv="cmp">${icon('download', 'icon-sm')} Excel</button></header>
+      <section class="card" data-group style="margin-top:16px"><header><div><h2>مقارنة خصومات الموردين على نفس الصنف</h2><span class="sub">آخر شرا من كل مورد في 6 شهور (الخصم الفعلي بعد البونص)</span></div><button class="btn sm quiet" data-csv="cmp" data-key="x" title="نزّل الجدول ده Excel">${icon('download', 'icon-sm')} Excel</button></header>
         ${table('cmp', [
           { t: 'الصنف', f: nm, x: (r) => r.name_en }, { t: 'موردين', n: 1, f: (r) => int(r.suppliers), x: (r) => r.suppliers },
           { t: 'الأحسن', f: (r) => h`<b>${r.best_supplier}</b> <span class="pill p-good plain">${num(r.best_pct)}%</span>`, x: (r) => `${r.best_supplier} ${r.best_pct}%` },
@@ -252,7 +252,7 @@ export default async function reports({ el, api, params, state }) {
         ${kpi('من شهر لـ 3', 'alert', moneyR(b[1] + b[2]), 'ج', h`${meter(b[1] + b[2], tot, 'warn')}`)}
         ${kpi('أكتر من 3 شهور', 'alert', moneyR(b[3]), 'ج', h`${meter(b[3], tot, 'bad')}`)}
       </section>
-      <section class="card" style="margin-top:16px"><header><div><h2>المديونيات وبقالها قد إيه</h2><span class="sub">الأقدم بيتسدد الأول</span></div><button class="btn sm quiet" data-csv="aging">${icon('download', 'icon-sm')} Excel</button></header>
+      <section class="card" data-group style="margin-top:16px"><header><div><h2>المديونيات وبقالها قد إيه</h2><span class="sub">الأقدم بيتسدد الأول</span></div><button class="btn sm quiet" data-csv="aging" data-key="x" title="نزّل الجدول ده Excel">${icon('download', 'icon-sm')} Excel</button></header>
         ${table('aging', [
           { t: 'العميل', f: (r) => h`<b>${r.name}</b><div class="muted ltr" style="font-size:12px;text-align:right">${r.phone || ''}</div>`, x: (r) => r.name },
           { t: 'عليه', n: 1, f: (r) => h`<b>${money(r.balance)}</b>`, x: (r) => r.balance },
@@ -266,9 +266,9 @@ export default async function reports({ el, api, params, state }) {
           { t: 'العميل', f: (r) => h`<b>${r.name}</b>`, x: (r) => r.name }, { t: 'زيارات', n: 1, f: (r) => int(r.visits), x: (r) => r.visits },
           { t: 'اشترى بـ', n: 1, f: (r) => h`<b>${money(r.sales)}</b>`, x: (r) => r.sales }, { t: 'ربح', n: 1, f: (r) => money(r.profit), x: (r) => r.profit }, { t: 'آخر مرة', f: (r) => dateShort(r.last_visit), x: (r) => r.last_visit },
         ], top, { limit: 12, name: 'أحسن-العملاء', href: (r) => '#/customers/' + r.customer_id }), { csv: 'topc' })}
-        ${card('عملاء بطّلوا ييجوا', 'كانوا بييجوا بانتظام، ومن 45 يوم مفيش — ابعتلهم «وحشتنا»', lapsed.length ? h`<div class="list">${lapsed.slice(0, 12).map((r) => h`<div class="li"><span class="ico i-gold">${icon('user')}</span>
+        ${card('عملاء بطّلوا ييجوا', 'كانوا بييجوا بانتظام، ومن 45 يوم مفيش — ابعتلهم «وحشتنا»', lapsed.length ? h`<div class="list">${lapsed.slice(0, 12).map((r) => h`<div class="li" data-row><span class="ico i-gold">${icon('user')}</span>
             <div class="grow"><a href="#/customers/${r.customer_id}" style="color:inherit;text-decoration:none"><b>${r.name}</b></a><span class="muted" style="font-size:13px">${int(r.visits)} زيارة · ${moneyR(r.spent)} ج · كان بييجي كل ${num(r.avg_gap_days)} يوم</span></div>
-            <span class="pill p-warn">غايب ${r.days_away} يوم</span><a class="btn sm ghost" target="_blank" rel="noopener" href="${waLink(r.phone, miss(r))}">${icon('whatsapp')}</a></div>`)}</div>` : empty('كل العملاء المنتظمين لسه بييجوا'))}
+            <span class="pill p-warn">غايب ${r.days_away} يوم</span><a class="btn sm ghost" data-key="w" title="ابعتله «وحشتنا»" target="_blank" rel="noopener" href="${waLink(r.phone, miss(r))}">${icon('whatsapp')}</a></div>`)}</div>` : empty('كل العملاء المنتظمين لسه بييجوا'))}
       </section>
       ${card('عملاء الأمراض المزمنة: ميعاد علبتهم قرّب', h`<a href="#/customers">افتح شاشة العملاء عشان تفكّرهم ←</a>`, table('refills', [
         { t: 'العميل', k: 'customer' }, { t: 'الصنف', f: nm, x: (r) => r.name_en }, { t: 'كل', n: 1, f: (r) => r.every_days + ' يوم', x: (r) => r.every_days },
@@ -288,7 +288,7 @@ export default async function reports({ el, api, params, state }) {
         ${kpi('نسبة وصول الطلبية', 'check', lines ? pct((got / lines) * 100) : '—', '', `${int(got)} من ${int(lines)} صنف اتطلب وصل في يومين`)}
         ${kpi('طلبيات متأخرة', 'alert', int(late.length), 'صنف', 'اتطلب من أكتر من 24 ساعة وماوصلش')}
       </section>
-      <section class="card" style="margin-top:16px"><header><div><h2>الناقص بجد</h2><span class="sub">بيتباع في آخر 30 يوم ورصيده تحت الحد الأدنى — مترتب بسرعة البيع</span></div><div class="row"><a class="btn sm" href="#/orders">${icon('truck')} جهّز الطلبيات</a><button class="btn sm quiet" data-csv="short">${icon('download', 'icon-sm')} Excel</button></div></header>
+      <section class="card" data-group style="margin-top:16px"><header><div><h2>الناقص بجد</h2><span class="sub">بيتباع في آخر 30 يوم ورصيده تحت الحد الأدنى — مترتب بسرعة البيع</span></div><div class="row"><a class="btn sm" href="#/orders">${icon('truck')} جهّز الطلبيات</a><button class="btn sm quiet" data-csv="short" data-key="x" title="نزّل الجدول ده Excel">${icon('download', 'icon-sm')} Excel</button></div></header>
         ${table('short', [
           { t: 'الصنف', f: nm, x: (r) => r.name_en }, { t: 'عندنا', n: 1, f: (r) => (Number(r.onhand_units) > 0 ? qty(r.onhand_units, r.pack_parts) : h`<span class="pill p-bad">صفر</span>`), x: (r) => r.onhand_units },
           { t: 'اتباع 30 يوم', n: 1, f: (r) => qty(r.sold_30d_units, r.pack_parts), x: (r) => r.sold_30d_units }, { t: 'نطلب', n: 1, f: (r) => h`<b>${num(r.order_packs)}</b>`, x: (r) => r.order_packs },

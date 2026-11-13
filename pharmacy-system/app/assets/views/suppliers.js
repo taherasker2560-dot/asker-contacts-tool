@@ -17,7 +17,7 @@ export default async function suppliers(ctx) {
     <div class="card kpi"><div class="l">${icon('sparkle')} أعلى خصم فعلي (90 يوم)</div><div class="v">${best ? num(best.avg_discount_90d) : '—'}<small>%</small></div><div class="f">${best ? best.name : ''}</div></div>
     <div class="card kpi"><div class="l">${icon('receipt')} فواتير 90 يوم</div><div class="v">${int(rows.reduce((s, r) => s + Number(r.invoices_90d), 0))}</div><div class="f">${int(rows.reduce((s, r) => s + Number(r.offers_30d), 0))} عرض في آخر 30 يوم</div></div>`);
   const maxD = Math.max(1, ...rows.map((r) => Number(r.avg_discount_90d || 0)));
-  render($('#cards', el), h`${rows.map((r) => h`<a class="card" href="#/suppliers/${r.id}" style="text-decoration:none;color:inherit;display:block">
+  render($('#cards', el), h`${rows.map((r) => h`<a class="card" data-row href="#/suppliers/${r.id}" style="text-decoration:none;color:inherit;display:block">
       <header><div><h2>${r.name}</h2><span class="sub">${r.kind === 'company' ? 'شركة' : r.kind === 'store' ? 'مخزن' : r.kind || ''}${r.last_invoice ? ' · آخر فاتورة ' + dateShort(r.last_invoice) : ''}</span></div><span class="ico i-crimson">${icon('factory')}</span></header>
       <div class="row between"><span class="muted">علينا</span><b style="font-family:var(--f-display);font-size:22px">${money(r.balance)}</b></div>
       <div style="margin-top:10px"><div class="row between" style="font-size:13px"><span class="muted">الخصم الفعلي</span><b>${r.avg_discount_90d == null ? '—' : num(r.avg_discount_90d) + '%'}</b></div>
@@ -37,8 +37,8 @@ async function supplierPage({ el, api, can }, id) {
   } catch (e) { return render(el, errorBox(e)); }
   if (!s) return render(el, h`<div class="card">${empty('المورد ده مش موجود')}</div>`);
   render(el, h`
-    <div class="head"><div><a href="#/suppliers" class="muted" style="text-decoration:none;font-size:14px">${icon('back', 'icon-sm')} الموردين</a><h1 style="margin-top:4px">${s.name}</h1></div>
-      <div class="actions">${can(['owner', 'manager']) ? h`<button class="btn" id="pay">${icon('cash')} دفع للمورد</button>` : ''}</div></div>
+    <div class="head"><div><a href="#/suppliers" data-back class="muted" style="text-decoration:none;font-size:14px">${icon('back', 'icon-sm')} الموردين</a><h1 style="margin-top:4px">${s.name}</h1></div>
+      <div class="actions">${can(['owner', 'manager']) ? h`<button class="btn" id="pay" data-hot="alt+p">${icon('cash')} دفع للمورد <kbd style="background:transparent;color:#f0cdd5">Alt+P</kbd></button>` : ''}</div></div>
     <section class="grid g3">
       <div class="card kpi hero"><div class="l">${icon('wallet')} علينا</div><div class="v">${money(s.balance)}<small>ج</small></div><div class="f">${s.last_invoice ? 'آخر فاتورة ' + dateShort(s.last_invoice) : ''}</div></div>
       <div class="card kpi"><div class="l">${icon('sparkle')} الخصم الفعلي</div><div class="v">${s.avg_discount_90d == null ? '—' : num(s.avg_discount_90d)}<small>%</small></div><div class="f">متوسط 90 يوم بعد البونص</div></div>
