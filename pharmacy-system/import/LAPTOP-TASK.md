@@ -15,11 +15,10 @@
 1. **الأسئلة اللي فاضلة:** `python profile.py D:\AskerImport 2` بنفس اتصال `discover.py`، واقرا `D:\AskerImport\profile2.md`.
 2. **قاعدة التجربة:** اعمل `asker_import_test` على بورت 5433 (كلمة سر `postgres` في `D:\AskerTrial\secrets\postgres.txt`)، وطبّق عليها `db\00`..`db\13` بالترتيب وبعدين كل `db\migrations` (نفس طريقة `install\laptop\common.ps1`: `Invoke-Psql` و`Invoke-Migrations`). الملفات فيها عربي: شغّلها بـ `-f` مش `-c`.
 3. **نسخ الجداول:** `copy.py` بـ `PGURL=postgresql://postgres:<كلمة السر>@127.0.0.1:5433/asker_import_test` ونفس اتصال SQL Server. بيعمل `pf_raw` في القاعدة. انسخ الجداول اللي محتاجها بس (`copy.py <الشغل> posTickets posItems ...`).
-4. **ملف الربط:** اكتب `pharmacy-system\import\pharmafly-to-stage.sql` (SQL لـ Postgres، بيقرا `pf_raw` ويملا `stage.*`) حسب `MAPPING.md` و`profile2.md`. أسامي الأعمدة في `pf_raw` بنفس حروفها الكبيرة والصغيرة (`"SalesReturn"`).
-   - صنف 1 («أصناف متنوعة») مايتنقلش، وتذاكر الصفر تحصيل مش بيع.
-   - التشغيلة = `رقم الصنف:الصلاحية` في البيع والشرا والرصيد، بنفس الشكل بالظبط.
-   - التاريخ الغلط (قبل 2018 أو في المستقبل) ماتخترعلوش تاريخ: خد أقرب تاريخ مؤكد (`ztime`) أو سيب السطر وسجّله.
-   - لو حاجة مش واضحة: الاختيار اللي بيخلّي الأرصدة تطابق فارمافلاي هو الصح (الخطوة 5 بتقيس ده).
+4. **ملف الربط جاهز:** `pharmacy-system\import\pharmafly-to-stage.sql` (نزّله من المستودع لو مش عندك: نفس رابط `LAPTOP-TASK.md` بس باسمه).
+   اتكتب من السحابة على القواعد اللي اتأكدت، واتجرب على نسخة متولّدة بنفس الجداول (`tests/check-pharmafly-map.sh`: الحسابات والمخزون طابقوا بالظبط).
+   **ماتعيدش كتابته.** الحاجات اللي لسه مش مؤكدة اختيارات في جدول `pf_raw.map_options` (مشروحة في أول الملف): غيّرها بـ `update` حسب `profile2.md` وحسب الفروق في الخطوة 5.
+   لو لقيت غلط في قاعدة مش اختيار، صلّحه بأقل تعديل وقول للمالك إيه اللي اتغير.
 5. **النقل والقياس:** `select ph.import_history('pharmafly <التاريخ>');` وبعده:
    - `select kind, count(*) from ph.import_issues group by 1;`
    - **المهم:** عدد ومجموع `balance_reconciled` (حسابات العملاء والموردين اللي تاريخها ماطابقش رصيد فارمافلاي) و`stock_reconciled` (أصناف رصيدها ماطابقش).
