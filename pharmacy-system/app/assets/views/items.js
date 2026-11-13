@@ -74,7 +74,7 @@ async function itemPage({ el, api, go, can }, id) {
       <p class="ltr" style="text-align:right">${it.name_en} · #${it.id}</p>
       <div class="row wrap" style="gap:6px;margin-top:8px">${it.category ? h`<span class="pill p-muted plain">${it.category}</span>` : ''}${it.is_controlled ? h`<span class="pill p-bad plain">جدول</span>` : ''}${it.needs_rx ? h`<span class="pill p-info plain">روشتة</span>` : ''}${it.is_fridge ? h`<span class="pill p-info plain">${icon('fridge', 'icon-sm')} تلاجة</span>` : ''}
         <span class="pill p-gold plain">${it.pack_name || 'علبة'} = ${it.pack_parts} ${it.unit_name}</span></div></div>
-      <div class="actions"><a class="btn" href="#/pos" data-hot="alt+s">${icon('pos')} بيع <kbd style="background:transparent;color:#f0cdd5">Alt+S</kbd></a></div></div>
+      <div class="actions"><a class="btn" href="#/pos" data-hot="alt+s">${icon('pos')} بيع <kbd style="background:transparent;color:var(--on-c-2)">Alt+S</kbd></a></div></div>
     <section class="grid g4">
       <div class="card kpi hero"><div class="l">${icon('box')} الرصيد</div><div class="v">${qty(it.onhand_units, it.pack_parts, it.pack_name, it.unit_name)}</div><div class="f">${stock.length} تشغيلة · ${it.nearest_expiry ? 'أقرب صلاحية ' + dateMY(it.nearest_expiry) : ''}</div></div>
       <div class="card kpi"><div class="l">${icon('chart')} بيع آخر 30 يوم</div><div class="v">${qty(s30 ? s30.units : 0, it.pack_parts, it.pack_name, it.unit_name)}</div><div class="f">≈ ${num((daily * 30 / it.pack_parts) / 4.3)} ${it.pack_name || 'علبة'} في الأسبوع</div></div>

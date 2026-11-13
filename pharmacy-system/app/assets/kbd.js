@@ -18,6 +18,7 @@ export const KEYS = {
     { k: ['Alt+Digit1', 'Alt+Digit2', 'Alt+Digit3', 'Alt+Digit4', 'Alt+Digit5', 'Alt+Digit6', 'Alt+Digit7', 'Alt+Digit8', 'Alt+Digit9'], do: 'nav', t: 'روح للشاشة رقم 1…9 (بترتيب القايمة)' },
     { k: ['Alt+KeyN'], do: 'note', t: 'سجّل ملاحظة في التجربة' },
     { k: ['Alt+KeyT'], do: 'theme', t: 'نهاري / ليلي' },
+    { k: ['Alt+KeyK'], do: 'colors', t: 'ألوان البرنامج (نفس ألوان البوت والموقع)' },
     { k: ['Escape'], do: 'back', t: 'رجوع خطوة / اقفل النافذة' },
   ],
   lists: [
@@ -226,6 +227,7 @@ export function initKeyboard(api) {
     refresh: () => api.refresh(),
     note: () => api.note(),
     theme: () => api.theme(),
+    colors: () => api.colors(),
   };
   const map = new Map();
   for (const g of KEYS.global) for (const k of g.k) map.set(k, g.do);

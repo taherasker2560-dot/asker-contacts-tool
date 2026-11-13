@@ -229,9 +229,9 @@ export default async function pos({ el, api, state }) {
         <div class="row"><span>الإجمالي</span><span class="num">${money(subtotal())}</span></div>
         <div class="row"><span>خصم</span><input class="input num" id="disc" data-hot="alt+x" type="number" min="0" step="0.5" value="${disc || ''}" placeholder="0" style="width:110px;height:34px;text-align:center"></div>
       </div>
-      <div class="field" style="position:relative"><label style="color:#e9c3cb">العميل</label>
-        ${customer ? h`<div class="cust-box"><div class="row between"><b>${customer.name}</b><button class="btn sm quiet" id="unc" data-hot="alt+c" style="color:#fff;border-color:rgba(255,255,255,.25)">تغيير <kbd style="background:transparent;color:#f0cdd5">Alt+C</kbd></button></div>
-            <div class="row between" style="font-size:13px;color:#e9c3cb;margin-top:4px"><span>عليه ${money(customer.balance)}</span><span>الحد ${money(customer.credit_limit)}</span></div>
+      <div class="field" style="position:relative"><label style="color:var(--on-c-2)">العميل</label>
+        ${customer ? h`<div class="cust-box"><div class="row between"><b>${customer.name}</b><button class="btn sm quiet" id="unc" data-hot="alt+c" style="color:#fff;border-color:rgba(255,255,255,.25)">تغيير <kbd style="background:transparent;color:var(--on-c-2)">Alt+C</kbd></button></div>
+            <div class="row between" style="font-size:13px;color:var(--on-c-2);margin-top:4px"><span>عليه ${money(customer.balance)}</span><span>الحد ${money(customer.credit_limit)}</span></div>
             <div class="meter"><i class="${Number(customer.balance) / Math.max(1, Number(customer.credit_limit)) > 0.85 ? 'bad' : 'warn'}" style="width:${Math.min(100, (Number(customer.balance) / Math.max(1, Number(customer.credit_limit))) * 100)}%"></i></div>
             <div id="cref"></div></div>`
           : h`<input class="input" id="cq" data-hot="alt+c" placeholder="اسم أو موبايل (Alt+C) — لازم للآجل" autocomplete="off"><div class="results" id="cres" hidden style="color:var(--ink)"></div>`}
@@ -296,7 +296,7 @@ export default async function pos({ el, api, state }) {
     const box = reg.querySelector('#cref'); if (!box || !customer) return;
     try {
       const due = await api.select('v_refills_due', { customer_id: 'eq.' + customer.id, limit: 4 });
-      if (due.length && customer && reg.querySelector('#cref') === box) render(box, h`<div style="margin-top:8px;font-size:12px;color:#e9c3cb">ميعاد علبته:</div><div class="chips" style="margin-top:4px">${due.map((d) => h`<button class="chip" data-refill="${d.item_id}" style="background:var(--gold-500);border-color:var(--gold-500);color:#2a0610">+ ${d.name_ar || d.name_en}</button>`)}</div>`);
+      if (due.length && customer && reg.querySelector('#cref') === box) render(box, h`<div style="margin-top:8px;font-size:12px;color:var(--on-c-2)">ميعاد علبته:</div><div class="chips" style="margin-top:4px">${due.map((d) => h`<button class="chip" data-refill="${d.item_id}" style="background:var(--gold-500);border-color:var(--gold-500);color:#241a06">+ ${d.name_ar || d.name_en}</button>`)}</div>`);
     } catch (e) {}
   }
 
@@ -393,7 +393,7 @@ export default async function pos({ el, api, state }) {
         <div style="min-width:220px;text-align:center;align-self:center">
           ${change ? h`<div class="muted">الباقي للعميل</div><div style="font-family:var(--f-display);font-size:48px;color:var(--accent-ink);line-height:1.1">${money(change)}</div>` : h`<div class="ico i-good" style="margin:0 auto 10px;width:64px;height:64px">${icon('check')}</div>`}
           <p class="muted">${r.repeat ? 'الفاتورة دي كانت متسجلة قبل كده (مااتسجلتش مرتين)' : 'المخزون والحسابات اتحدّثوا'}</p></div></div>`,
-      footer: h`<button class="btn quiet" id="pr">${icon('printer')} اطبع <kbd>P</kbd></button><button class="btn" data-close autofocus>فاتورة جديدة <kbd style="background:transparent;color:#f0cdd5;border-color:rgba(255,255,255,.3)">Enter</kbd></button>`,
+      footer: h`<button class="btn quiet" id="pr">${icon('printer')} اطبع <kbd>P</kbd></button><button class="btn" data-close autofocus>فاتورة جديدة <kbd style="background:transparent;color:var(--on-c-2);border-color:rgba(255,255,255,.3)">Enter</kbd></button>`,
       wide: true, onClose: () => q.focus() });
     $('#pr', m.el).addEventListener('click', () => window.print());
     m.el.addEventListener('keydown', (e) => { if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); m.close(); } else if (e.code === 'KeyP' || (e.ctrlKey && e.code === 'KeyP')) { e.preventDefault(); window.print(); } });

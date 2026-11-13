@@ -8,7 +8,7 @@ export default async function dashboard({ el, api, state, can }) {
   const first = (state.user.name || '').split(' ').slice(0, 2).join(' ');
   render(el, h`
     <div class="head"><div><h1>${hello()} يا ${first}</h1><p id="sub">بجهّز أرقام النهارده…</p></div>
-      <div class="actions"><a class="btn" href="#/pos">${icon('pos')} بيع جديد <kbd style="background:transparent;color:#f0cdd5;border-color:rgba(255,255,255,.3)">F2</kbd></a>
+      <div class="actions"><a class="btn" href="#/pos">${icon('pos')} بيع جديد <kbd style="background:transparent;color:var(--on-c-2);border-color:rgba(255,255,255,.3)">F2</kbd></a>
       <button class="btn quiet" id="rf" title="F5">${icon('refresh')} تحديث <kbd>F5</kbd></button></div></div>
     <section class="grid g4" id="kpis">${[1, 2, 3, 4].map(() => h`<div class="card kpi">${skeleton(3)}</div>`)}</section>
     <section class="card" style="margin-top:16px"><header><h2>محتاج منك النهارده</h2><span class="sub" id="health"></span></header><div class="todo" id="todo">${skeleton(2)}</div></section>

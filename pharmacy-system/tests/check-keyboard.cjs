@@ -119,7 +119,12 @@ const ok = (c, m) => { if (c) console.log('OK  ', m); else { failed++; console.l
   ok(n(`select count(*) from ph.trial_notes where status = 'open'`) === open - 1, '↓ ← F ← Enter قفل الملاحظة');
   await press('Alt+KeyN', 500); await type('ملاحظة من الكيبورد بس'); await press('Control+Enter', 900);
   ok(n(`select count(*) from ph.trial_notes where note like 'ملاحظة من الكيبورد بس%'`) === 1, 'Alt+N ← اكتب ← Ctrl+Enter سجّل ملاحظة');
-  await press('Alt+KeyT'); ok(['dark', 'light'].includes(await p.evaluate(() => document.documentElement.dataset.theme)), 'Alt+T نهاري/ليلي');
+  await press('Alt+KeyT'); ok((await p.evaluate(() => document.documentElement.dataset.theme)) === 'dark', 'Alt+T ليلي');
+  await press('Alt+KeyT'); ok((await p.evaluate(() => document.documentElement.dataset.theme)) === 'light', 'Alt+T نهاري تاني');
+  await press('Alt+KeyK', 500); await p.waitForSelector('.swatches');
+  await press('ArrowLeft', 300); ok((await p.evaluate(() => document.documentElement.dataset.accent)) === 'crimson', 'Alt+K ← اللون اتغير لعنابي');
+  await press('ArrowRight', 300); ok((await p.evaluate(() => document.documentElement.dataset.accent)) === 'asker', '→ رجع أزرق عسكر');
+  await press('Escape', 500);
   await press('Alt+Digit1', 900); ok((await hash()) === '#/', 'Alt+1 اللوحة');
   await press('F3'); await type('خروج', 500); await press('Enter', 800);
   ok(await p.locator('#login').count() === 1, 'F3 ← «خروج» ← Enter');

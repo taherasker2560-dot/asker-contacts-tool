@@ -107,6 +107,7 @@ async function login(page, u, p) {
   // ---------------------------------------------------------------- المالك
   await login(page, 'taher', 'demo-pass-1');
   await page.waitForSelector('.kpi .v');
+  ok(await page.evaluate(() => document.documentElement.dataset.accent === 'asker' && getComputedStyle(document.documentElement).getPropertyValue('--c-main').trim() === '#0a4aa6'), 'اللون الأساسي أزرق عسكر (زي البوت والموقع)');
   await page.waitForSelector('#health .pill');
   ok(/سليمة 10\/10/.test(await page.textContent('#health')), 'اللوحة: القاعدة سليمة 10/10');
   ok(await page.locator('#todo a').count() >= 4, 'اللوحة: «محتاج منك النهارده»');
@@ -157,14 +158,17 @@ async function login(page, u, p) {
 
   // ---------------------------------------------------------------- الموبايل والليلي
   for (const scheme of ['light', 'dark']) {
-    const m = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: scheme });
+    const m = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const mp = await m.newPage();
+    // الليلي بيتختار من البرنامج (زي البوت)، مش من إعداد الجهاز
+    await mp.addInitScript((sc) => { if (sc === 'dark') try { localStorage.setItem('asker.theme', 'dark'); } catch (e) {} }, scheme);
     await login(mp, 'taher', 'demo-pass-1');
     await mp.waitForSelector('.kpi .v');
     for (const hsh of ['#/', '#/pos', '#/reports/sales', '#/customers', '#/items']) {
       await mp.goto(BASE + '/' + hsh); await mp.waitForTimeout(900);
       ok(await mp.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `موبايل ${scheme} ${hsh}: من غير سكرول جانبي`);
     }
+    if (scheme === 'dark') ok(await mp.evaluate(() => document.documentElement.dataset.theme === 'dark'), 'الليلي اتطبق من اختيار البرنامج');
     await mp.click('#more'); await mp.waitForSelector('.modal a[href="#/reports"]');
     ok(true, `موبايل ${scheme}: «المزيد» فيه التقارير`);
     if (shots) await mp.screenshot({ path: path.join(shots, `ui-phone-${scheme}.png`) });

@@ -148,17 +148,48 @@ function tickClock() {
 }
 
 function toggleTheme() {
-  const cur = document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  const next = cur === 'dark' ? 'light' : 'dark';
-  document.documentElement.dataset.theme = next;
-  try { localStorage.setItem('asker.theme', next); } catch (e) {}
+  const night = document.documentElement.dataset.theme === 'dark';
+  window.AskerTheme.setNight(!night);
   syncThemeIcon();
   route(true);   // الرسوم بتتلوّن من جديد
 }
 function syncThemeIcon() {
   const b = $('#theme'); if (!b) return;
-  const dark = (document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark';
-  b.innerHTML = String(icon(dark ? 'sun' : 'moon'));
+  b.innerHTML = String(icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon'));
+}
+// ألوان البرنامج: نفس الـ 25 لون بتوع البوت والموقع + «لون من اختيارك» + الليلي. محفوظة على الجهاز ده
+export function colorDialog() {
+  const T = window.AskerTheme;
+  const draw = () => {
+    const c = T.choice();
+    return h`<div class="stack">
+      <p class="muted" style="margin:0">نفس ألوان البوت والموقع. «أزرق عسكر» هو لون اللوجو. الاختيار بيتحفظ على الجهاز ده.</p>
+      <div class="swatches" id="sw" role="radiogroup" aria-label="اللون">${T.PRESETS.map((p) => h`<button type="button" class="sw ${p.id === c.id ? 'on' : ''}" role="radio" aria-checked="${p.id === c.id}" data-accent="${p.id}"><i style="background:${T.palette(p.hex, false).main}"></i>${p.name}</button>`)}</div>
+      <div class="row wrap" style="gap:14px">
+        <label class="row" style="gap:8px"><input type="color" id="swc" value="${c.hex}" style="width:44px;height:34px;border:0;background:none;padding:0"> لون من اختيارك</label>
+        <label class="row" style="gap:8px;margin-inline-start:auto"><input type="checkbox" id="swn" ${c.night ? 'checked' : ''}> الوضع الليلي <kbd>Alt+T</kbd></label>
+      </div></div>`;
+  };
+  const m = modal({ title: 'ألوان البرنامج', wide: true, body: draw(), footer: h`<span class="muted" style="margin-inline-end:auto;font-size:13px"><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> اختار اللون · <kbd>Esc</kbd> تمام</span><button class="btn quiet" id="swr">رجّع أزرق عسكر</button><button class="btn" data-close>تمام</button>` });
+  const body = m.card.querySelector('.body');
+  const redraw = (focusId) => { body.innerHTML = String(draw()); bind(); const f = body.querySelector(`[data-accent="${focusId}"]`) || body.querySelector('.sw.on'); if (f) f.focus(); syncThemeIcon(); };
+  function bind() {
+    $('#sw', m.el).addEventListener('click', (e) => { const b = e.target.closest('[data-accent]'); if (b) { T.setAccent(b.dataset.accent); redraw(b.dataset.accent); } });
+    $('#sw', m.el).addEventListener('keydown', (e) => {   // الألوان بالأسهم (الشبكة من اليمين للشمال)
+      const all = [...m.el.querySelectorAll('.sw')], i = all.indexOf(document.activeElement); if (i < 0) return;
+      const cols = Math.max(1, Math.round($('#sw', m.el).clientWidth / all[0].offsetWidth));
+      const d = { ArrowLeft: 1, ArrowRight: -1, ArrowDown: cols, ArrowUp: -cols }[e.code];
+      if (d == null) return;
+      e.preventDefault(); const n = all[Math.max(0, Math.min(all.length - 1, i + d))]; T.setAccent(n.dataset.accent); redraw(n.dataset.accent);
+    });
+    const custom = (e) => { if (/^#[0-9a-f]{6}$/i.test(e.target.value)) { T.setAccent('c:' + e.target.value.toLowerCase()); syncThemeIcon(); body.querySelectorAll('.sw').forEach((x) => x.classList.remove('on')); } };
+    $('#swc', m.el).addEventListener('input', custom); $('#swc', m.el).addEventListener('change', custom);
+    $('#swn', m.el).addEventListener('change', (e) => { T.setNight(e.target.checked); syncThemeIcon(); });
+  }
+  bind();
+  $('#swr', m.el).addEventListener('click', () => { T.setAccent('asker'); redraw('asker'); });
+  setTimeout(() => { const f = m.el.querySelector('.sw.on'); if (f) f.focus(); }, 40);
+  m.done.then(() => route(true));   // الرسوم تتلوّن باللون الجديد
 }
 
 export async function refreshBadges() {
@@ -214,6 +245,7 @@ const COMMANDS = () => [
   { grp: 'أوامر', label: 'افحص سلامة القاعدة', icon: 'shield', run: () => go('#/settings'), kw: 'health فحص', roles: MGMT },
   { grp: 'أوامر', label: 'سجّل ملاحظة في التجربة', icon: 'note', run: noteDialog, kw: 'note bug مشكلة', roles: ALL, end: 'Alt+N' },
   { grp: 'أوامر', label: 'نهاري / ليلي', icon: 'moon', run: toggleTheme, kw: 'theme dark ليل', roles: ALL, end: 'Alt+T' },
+  { grp: 'أوامر', label: 'ألوان البرنامج', icon: 'sparkle', run: colorDialog, kw: 'color theme لون ألوان ازرق عنابي', roles: ALL, end: 'Alt+K' },
   { grp: 'أوامر', label: 'دليل الاختصارات', icon: 'key', run: () => guide({ routes: ROUTES, can, screenKeys: (state.view && state.view.keys) || [] }), kw: 'keys shortcuts اختصارات كيبورد', roles: ALL, end: 'F1' },
   { grp: 'أوامر', label: 'خروج', icon: 'logout', run: logout, kw: 'logout', roles: ALL },
 ].filter((c) => !c.roles || can(c.roles));
@@ -293,7 +325,7 @@ export function noteDialog() {
 // ---------------------------------------------------------------- الكيبورد (kbd.js): البرنامج كله من غير ماوس
 initKeyboard({
   ready: () => !!state.user && !!document.getElementById('page'),
-  go, palette: () => openPalette(), note: noteDialog, theme: toggleTheme,
+  go, palette: () => openPalette(), note: noteDialog, theme: toggleTheme, colors: colorDialog,
   refresh: () => { route(true); refreshBadges(); toast('اتحدّث ✓'); },
   nav: (n) => { const r = ROUTES.filter((x) => can(x.roles))[n - 1]; if (r) go('#/' + r.path); },
   guide: () => guide({ routes: ROUTES, can, screenKeys: (state.view && state.view.keys) || [] }),

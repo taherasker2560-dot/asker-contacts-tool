@@ -38,7 +38,7 @@ async function supplierPage({ el, api, can }, id) {
   if (!s) return render(el, h`<div class="card">${empty('المورد ده مش موجود')}</div>`);
   render(el, h`
     <div class="head"><div><a href="#/suppliers" data-back class="muted" style="text-decoration:none;font-size:14px">${icon('back', 'icon-sm')} الموردين</a><h1 style="margin-top:4px">${s.name}</h1></div>
-      <div class="actions">${can(['owner', 'manager']) ? h`<button class="btn" id="pay" data-hot="alt+p">${icon('cash')} دفع للمورد <kbd style="background:transparent;color:#f0cdd5">Alt+P</kbd></button>` : ''}</div></div>
+      <div class="actions">${can(['owner', 'manager']) ? h`<button class="btn" id="pay" data-hot="alt+p">${icon('cash')} دفع للمورد <kbd style="background:transparent;color:var(--on-c-2)">Alt+P</kbd></button>` : ''}</div></div>
     <section class="grid g3">
       <div class="card kpi hero"><div class="l">${icon('wallet')} علينا</div><div class="v">${money(s.balance)}<small>ج</small></div><div class="f">${s.last_invoice ? 'آخر فاتورة ' + dateShort(s.last_invoice) : ''}</div></div>
       <div class="card kpi"><div class="l">${icon('sparkle')} الخصم الفعلي</div><div class="v">${s.avg_discount_90d == null ? '—' : num(s.avg_discount_90d)}<small>%</small></div><div class="f">متوسط 90 يوم بعد البونص</div></div>

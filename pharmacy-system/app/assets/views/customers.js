@@ -27,7 +27,7 @@ export default async function customers(ctx) {
             <div class="grow"><a href="#/customers/${r.customer_id}" style="color:inherit;text-decoration:none"><b>${r.customer}</b></a><span class="muted" style="font-size:13px">${r.name_ar || r.name_en} · كل ${r.every_days} يوم · آخر مرة ${dateShort(r.last_bought)}</span></div>
             <span class="pill ${r.days_late > 0 ? 'p-bad' : 'p-warn'}">${r.days_late > 0 ? 'متأخر ' + r.days_late + ' يوم' : inDays(-r.days_late)}</span>
             <button class="btn sm ghost" data-copy="${i}" data-key="c" title="انسخ رسالة التذكير">${icon('copy')}</button>
-            <a class="btn sm" data-key="w" title="فكّره على واتساب" target="_blank" rel="noopener" href="${waLink(r.phone, reminder(r))}">${icon('whatsapp')} فكّره <kbd style="background:transparent;color:#f0cdd5">W</kbd></a></div>`)}</div>`
+            <a class="btn sm" data-key="w" title="فكّره على واتساب" target="_blank" rel="noopener" href="${waLink(r.phone, reminder(r))}">${icon('whatsapp')} فكّره <kbd style="background:transparent;color:var(--on-c-2)">W</kbd></a></div>`)}</div>`
           : empty('مفيش مواعيد قريبة', 'العملاء المزمنين كلهم واخدين علبهم'));
         body.onclick = (e) => { const b = e.target.closest('[data-copy]'); if (b) copyText(reminder(rows[+b.dataset.copy])); };
       } else if (tab === 'chronic') {
@@ -52,7 +52,7 @@ export default async function customers(ctx) {
           ${rows.map((r, i) => { const used = Number(r.credit_limit) ? Number(r.balance) / Number(r.credit_limit) : 1; return h`<tr data-row><td><a href="#/customers/${r.id}" style="color:inherit"><b>${r.name}</b></a><div class="muted ltr" style="font-size:12px;text-align:right">${r.phone || ''}</div></td>
             <td class="n"><b>${money(r.balance)}</b></td><td style="min-width:150px"><div class="meter"><i class="${used > 1 ? 'bad' : used > 0.8 ? 'warn' : ''}" style="width:${Math.min(100, used * 100)}%"></i></div><span class="muted" style="font-size:12px">الحد ${money(r.credit_limit)}</span></td>
             <td>${r.last_payment ? ago(r.last_payment) : h`<span class="pill p-warn">مادفعش قبل كده</span>`}</td>
-            <td><button class="btn sm" data-pay="${i}" data-key="p" title="حصّل منه">${icon('wallet')} حصّل <kbd style="background:transparent;color:#f0cdd5">P</kbd></button></td></tr>`; })}</tbody></table></div>` : empty('مفيش ديون على حد')}`);
+            <td><button class="btn sm" data-pay="${i}" data-key="p" title="حصّل منه">${icon('wallet')} حصّل <kbd style="background:transparent;color:var(--on-c-2)">P</kbd></button></td></tr>`; })}</tbody></table></div>` : empty('مفيش ديون على حد')}`);
         body.onclick = (e) => { const b = e.target.closest('[data-pay]'); if (b) { const r = rows[+b.dataset.pay]; collect(ctx, { id: r.id, name: r.name, balance: r.balance }, show); } };
       } else {
         render(body, h`<div class="search" style="margin-bottom:12px">${icon('search')}<input class="input" id="cs" data-search placeholder="اسم أو رقم موبايل ( / )"></div><div id="cl"></div>`);
@@ -113,7 +113,7 @@ async function customerPage(ctx, id) {
   render(el, h`
     <div class="head"><div><a href="#/customers/all" data-back class="muted" style="text-decoration:none;font-size:14px">${icon('back', 'icon-sm')} العملاء</a>
       <h1 style="margin-top:4px">${c.name}</h1><p class="ltr" style="text-align:right">${c.phone || ''}${c.area ? ' · ' + c.area : ''}</p></div>
-      <div class="actions"><button class="btn" id="pay" data-hot="alt+p">${icon('wallet')} حصّل <kbd style="background:transparent;color:#f0cdd5">Alt+P</kbd></button><a class="btn quiet" data-hot="alt+w" target="_blank" rel="noopener" href="${waLink(c.phone, 'أهلًا ' + c.name.split(' ')[0] + '، معاك صيدلية عسكر')}">${icon('whatsapp')} واتساب</a></div></div>
+      <div class="actions"><button class="btn" id="pay" data-hot="alt+p">${icon('wallet')} حصّل <kbd style="background:transparent;color:var(--on-c-2)">Alt+P</kbd></button><a class="btn quiet" data-hot="alt+w" target="_blank" rel="noopener" href="${waLink(c.phone, 'أهلًا ' + c.name.split(' ')[0] + '، معاك صيدلية عسكر')}">${icon('whatsapp')} واتساب</a></div></div>
     <section class="grid g4">
       <div class="card kpi hero"><div class="l">${icon('wallet')} عليه</div><div class="v">${money(c.balance)}<small>ج</small></div><div class="f">الحد ${money(c.credit_limit)}</div></div>
       <div class="card kpi"><div class="l">${icon('receipt')} اشترى بـ</div><div class="v">${moneyR(spent)}<small>ج</small></div><div class="f">آخر ${sales.length} فاتورة</div></div>
