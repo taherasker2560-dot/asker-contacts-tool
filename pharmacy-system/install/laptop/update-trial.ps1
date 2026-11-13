@@ -32,6 +32,12 @@ if ($NoPull -or -not (Test-Path (Join-Path $repo ".git"))) {
 Invoke-Migrations "asker"
 if ($before) { Say "لو التحديث ده ماعجبكش: rollback-trial.ps1 -Commit $before" } else { Say "لو التحديث ده ماعجبكش: rollback-trial.ps1 (بيرجّع آخر نسخة احتياطية للقاعدة)" }
 & (Join-Path $PSScriptRoot "desktop-icon.ps1") -Root $Root   # الأيقونة (لو اتمسحت أو أول مرة)
+# البوابة والمحرك بيتقفلوا ويقوموا من جديد: إعدادات البوابة (Caddyfile) ممكن تكون اتغيرت مع الكود، وإعدادات القاعدة
+# الجديدة (زي random_page_cost) بتشتغل مع الاتصالات الجديدة بس. ثانيتين والبرنامج راجع.
+Get-Process caddy, postgrest -ErrorAction SilentlyContinue |
+  Where-Object { $_.Path -and $_.Path.StartsWith($Root, [StringComparison]::OrdinalIgnoreCase) } |
+  Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Milliseconds 500
 & (Join-Path $PSScriptRoot "start-trial.ps1") -Root $Root -PgPort $PgPort   # البرنامج يقوم (لو مش شغال) قبل الفحص
 & (Join-Path $PSScriptRoot "check-trial.ps1") -Root $Root -PgPort $PgPort -BackupDir $BackupDir
 exit 0   # الفحص بيعرض النتيجة ومابيوقفش التحديث

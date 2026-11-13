@@ -11,6 +11,8 @@ http://:{$ASKER_PORT:8080} {
 	}
 	handle {
 		root * {$ASKER_APP_DIR:C:/Asker/app}
+		# المتصفح يتأكد من الشاشات كل مرة (304 لو ماتغيرتش): بعد أي تحديث الشاشات الجديدة بتظهر على طول من غير Ctrl+F5
+		header Cache-Control "no-cache"
 		file_server
 	}
 }
