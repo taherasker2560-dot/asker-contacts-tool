@@ -64,37 +64,67 @@ const ok = (c, m) => { if (c) console.log('OK  ', m); else { failed++; console.l
   await press('Alt+KeyL', 600); ok(await p.locator('.receipt').count() === 1, 'Alt+L آخر فاتورة تاني'); await press('Escape');
 
   // البحث والصنف
-  await press('F3'); await type('كتافلام', 900); await press('Enter', 900);
+  await press('F3'); await type('كتافلام', 900); await p.waitForSelector('.p-item b:has-text("كتافلام")'); await press('Enter', 300);
+  await p.waitForSelector('#page [data-back]');
   ok(/^#\/items\/\d+$/.test(await hash()), 'F3 بحث ← Enter فتح الصنف');
-  await press('Escape', 700); ok((await hash()) === '#/items', 'Esc رجع للأصناف');
-  await press('Slash'); await type('pana', 800); await press('ArrowDown'); await press('Enter', 900);
+  await press('Escape', 300); await p.waitForSelector('#s[data-search]'); ok((await hash()) === '#/items', 'Esc رجع للأصناف');
+  await press('Slash'); await type('pana', 300); await p.waitForSelector('#rows tr[data-row] >> text=PANADOL'); await press('ArrowDown'); await press('Enter', 300); await p.waitForSelector('#page [data-back]');
   ok(/^#\/items\/\d+$/.test(await hash()), '/ بحث ← ↓ ← Enter فتح صنف');
 
   // العملاء
-  await press('Alt+Digit6', 900); ok((await hash()).startsWith('#/customers'), 'Alt+6 = العملاء');
-  await press('BracketRight', 900); ok((await hash()) === '#/customers/chronic', '] التاب اللي بعده');
+  await press('Alt+Digit7', 900); ok((await hash()).startsWith('#/customers'), 'Alt+7 = العملاء');
+  await p.waitForSelector('#body [data-row], #body .empty');
+  await press('BracketRight', 300); await p.waitForSelector('#body tr[data-row] [data-key="a"]'); ok((await hash()) === '#/customers/chronic', '] التاب اللي بعده');
   const meds = n(`select count(*) from ph.customer_meds`);
   await press('ArrowDown'); await press('KeyA', 900);
   ok(n(`select count(*) from ph.customer_meds`) === meds + 1, '↓ ← A سجّل العميل مزمن');
-  await press('BracketRight', 900); ok((await hash()) === '#/customers/dues', '] المديونيات');
+  await press('BracketRight', 300); await p.waitForSelector('#body tr[data-row] [data-key="p"]'); ok((await hash()) === '#/customers/dues', '] المديونيات');
   const pays = n(`select count(*) from ph.payments`);
   await press('ArrowDown'); await press('KeyP', 700); await press('Enter', 900);
   ok(n(`select count(*) from ph.payments`) === pays + 1, '↓ ← P حصّل ← Enter سجّل الدفعة');
 
   // الطلبيات
-  await press('Alt+Digit5', 1200); ok((await hash()) === '#/orders', 'Alt+5 = الطلبيات');
+  await press('Alt+Digit6', 300); await p.waitForSelector('#groups tr[data-row] input'); ok((await hash()) === '#/orders', 'Alt+6 = الطلبيات');
   const pos = n(`select count(*) from ph.purchase_orders`);
   await press('ArrowDown'); const q0 = await p.inputValue('tr.kb-sel input'); await press('Equal');
   ok(Number(await p.inputValue('tr.kb-sel input')) === Number(q0) + 1, '+ زوّد كمية الطلبية');
   await press('KeyM', 1000); ok(n(`select count(*) from ph.purchase_orders`) === pos + 1, 'M = اتطلبت');
 
+  // المشتريات: فاتورة شرا من أولها لترحيلها بالكيبورد
+  await press('Alt+Digit4', 300); await p.waitForSelector('#rows tr[data-row]'); ok((await hash()) === '#/purchases', 'Alt+4 = المشتريات');
+  await press('Alt+KeyA', 1300); ok((await hash()) === '#/purchases/new', 'Alt+A فاتورة شرا جديدة');
+  await p.waitForSelector('#sup:focus');
+  await press('ArrowDown', 400);
+  if (await p.evaluate(() => document.activeElement.id === 'sup')) await press('Tab');
+  await type('KB-1'); await press('Enter');
+  const item = 1206, parts = n(`select pack_parts from ph.items where id = ${item}`), stock0 = n(`select coalesce(units, 0) from ph.v_onhand where item_id = ${item}`);
+  const piName = sql(`select name_ar from ph.items where id = ${item}`);
+  await type(piName, 300); await p.waitForSelector('#res .res'); await press('Enter', 300); await p.waitForSelector('#lb tr[data-i] input:focus');
+  ok(await p.locator('#lb tr[data-i]').count() === 1, 'الصنف دخل الفاتورة والمؤشر على الكمية');
+  await type('5'); await press('Enter'); await type('1'); await press('Enter'); await press('Enter'); await type('25'); await press('Enter'); await press('Enter');
+  await type('12/28'); await press('Enter');
+  const posted0 = n(`select count(*) from ph.purchase_invoices where status = 'posted'`);
+  await press('Control+Enter', 2000);
+  ok(n(`select count(*) from ph.purchase_invoices where status = 'posted'`) === posted0 + 1 && /^#\/purchases\/\d+$/.test(await hash()), 'Ctrl+Enter رحّل الفاتورة');
+  ok(n(`select coalesce(units, 0) from ph.v_onhand where item_id = ${item}`) === stock0 + 6 * parts, 'المخزون زاد 5 + 1 بونص');
+  ok(sql(`select l.expiry || '|' || round(l.cost_total) from ph.purchase_invoice_lines l join ph.purchase_invoices i on i.id = l.invoice_id where i.supplier_doc_no = 'KB-1'`).startsWith('2028-12-31|'), 'الصلاحية 12/28 ← 2028-12-31');
+
+  // الخزن: تحويل ومصروف
+  await press('Alt+Digit9', 300); await p.waitForSelector('#mv tr'); ok((await hash()) === '#/cash', 'Alt+9 = الخزن');
+  const tr0 = n(`select count(*) from ph.cash_transfers`), ex0 = n(`select count(*) from ph.expenses`);
+  await press('Alt+KeyR', 600); await type('100'); await press('Enter', 1200);
+  ok(n(`select count(*) from ph.cash_transfers`) === tr0 + 1, 'Alt+R ← 100 ← Enter: توريد من الدرج للخزنة');
+  await press('Alt+KeyE', 700); await type('50'); await press('Enter', 1200);
+  ok(n(`select count(*) from ph.expenses`) === ex0 + 1, 'Alt+E ← 50 ← Enter: مصروف');
+  ok(n(`select count(*) from ph.health_check() where not ok`) === 0, 'الفحص الذاتي سليم بعد الشرا والخزن');
+
   // التقارير
-  await press('Alt+Digit8', 1500); ok((await hash()).startsWith('#/reports'), 'Alt+8 = التقارير');
+  await press('Alt+Digit0', 1500); ok((await hash()).startsWith('#/reports'), 'Alt+0 = التقارير');
   const seen = new Set();
   for (let i = 0; i < 7; i++) { await p.waitForSelector('#body .kpi .v'); seen.add(await hash()); await press('BracketRight', 1300); }
   ok(seen.size === 7, '] لفّ على التقارير السبعة');
   await press('Shift+BracketRight', 1300); ok(await p.locator('#per .chip.on').count() === 1, 'Shift+] غيّر الفترة');
-  await p.evaluate(() => { location.hash = '#/reports/stock'; }); await p.waitForTimeout(1500);
+  await p.evaluate(() => { location.hash = '#/reports/stock'; }); await p.waitForSelector('#body tr[data-row]');
   await press('ArrowDown');
   const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 5000 }), press('KeyX')]);
   ok(/\.csv$/.test(dl.suggestedFilename()), 'X نزّل الجدول المختار Excel');

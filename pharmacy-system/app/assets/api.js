@@ -68,6 +68,10 @@ export async function one(table, params = {}) {
 }
 export function rpc(fn, args = {}, opts = {}) { return request('POST', '/rpc/' + fn, { body: args, ...opts }); }
 export function insert(table, row) { return request('POST', '/' + table, { body: row, headers: { Prefer: 'return=representation' } }); }
+export function remove(table, match) {
+  const q = new URLSearchParams(match).toString();
+  return request('DELETE', '/' + table + '?' + q);
+}
 export function update(table, match, patch) {
   const q = new URLSearchParams(match).toString();
   return request('PATCH', '/' + table + '?' + q, { body: patch, headers: { Prefer: 'return=representation' } });

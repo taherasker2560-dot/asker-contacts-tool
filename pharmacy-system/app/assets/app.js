@@ -13,10 +13,12 @@ export const ROUTES = [
   { path: '', view: 'dashboard', label: 'لوحة النهارده', icon: 'home', roles: CLIN, grp: 'اليوم' },
   { path: 'pos', view: 'pos', label: 'البيع', icon: 'pos', roles: ALL, grp: 'اليوم', key: 'F2' },
   { path: 'items', view: 'items', label: 'الأصناف والمخزون', icon: 'pill', roles: ALL, grp: 'المخزن' },
+  { path: 'purchases', view: 'purchases', label: 'المشتريات', icon: 'box', roles: CLIN, grp: 'المخزن' },
   { path: 'expiry', view: 'expiry', label: 'الصلاحية', icon: 'hourglass', roles: CLIN, grp: 'المخزن', badge: 'expiring_30d' },
   { path: 'orders', view: 'orders', label: 'الطلبيات الذكية', icon: 'truck', roles: CLIN, grp: 'المخزن', badge: 'shortages' },
-  { path: 'customers', view: 'customers', label: 'العملاء', icon: 'users', roles: CLIN, grp: 'الناس', badge: 'refills_due' },
-  { path: 'suppliers', view: 'suppliers', label: 'الموردين', icon: 'factory', roles: MGMT, grp: 'الناس' },
+  { path: 'customers', view: 'customers', label: 'العملاء', icon: 'users', roles: CLIN, grp: 'الناس والفلوس', badge: 'refills_due' },
+  { path: 'suppliers', view: 'suppliers', label: 'الموردين', icon: 'factory', roles: MGMT, grp: 'الناس والفلوس' },
+  { path: 'cash', view: 'cash', label: 'الخزن', icon: 'wallet', roles: MGMT, grp: 'الناس والفلوس' },
   { path: 'reports', view: 'reports', label: 'التقارير', icon: 'chart', roles: MGMT, grp: 'الإدارة' },
   { path: 'settings', view: 'settings', label: 'الإعدادات والتجربة', icon: 'gear', roles: MGMT, grp: 'الإدارة', badge: 'open_notes' },
 ];
@@ -90,7 +92,8 @@ function navLinks() {
     if (!can(r.roles)) continue;
     if (r.grp !== grp) { grp = r.grp; out += `<div class="grp">${esc(grp)}</div>`; }
     n++;
-    out += String(h`<a href="#/${r.path}" data-path="${r.path}" title="Alt+${n}">${icon(r.icon)}<span>${r.label}</span>${r.badge ? h`<span class="badge" data-badge="${r.badge}" hidden></span>` : ''}<kbd class="nav-k">${n}</kbd></a>`);
+    const k = n <= 9 ? String(n) : n === 10 ? '0' : '';
+    out += String(h`<a href="#/${r.path}" data-path="${r.path}" title="${k ? 'Alt+' + k : ''}">${icon(r.icon)}<span>${r.label}</span>${r.badge ? h`<span class="badge" data-badge="${r.badge}" hidden></span>` : ''}${k ? h`<kbd class="nav-k">${k}</kbd>` : ''}</a>`);
   }
   return raw(out);
 }
@@ -238,8 +241,10 @@ async function route(soft) {
 
 // ---------------------------------------------------------------- لوحة الأوامر Ctrl+K
 const COMMANDS = () => [
-  ...ROUTES.filter((r) => can(r.roles)).map((r, i) => ({ grp: 'روح لـ', label: r.label, icon: r.icon, run: () => go('#/' + r.path), kw: r.path, end: 'Alt+' + (i + 1) })),
+  ...ROUTES.filter((r) => can(r.roles)).map((r, i) => ({ grp: 'روح لـ', label: r.label, icon: r.icon, run: () => go('#/' + r.path), kw: r.path, end: i < 9 ? 'Alt+' + (i + 1) : i === 9 ? 'Alt+0' : '' })),
   { grp: 'أوامر', label: 'فاتورة جديدة', icon: 'receipt', run: () => go('#/pos'), kw: 'new sale بيع', roles: ALL },
+  { grp: 'أوامر', label: 'فاتورة شرا جديدة', icon: 'box', run: () => go('#/purchases/new'), kw: 'purchase شرا مشتريات', roles: CLIN },
+  { grp: 'أوامر', label: 'مصروف / تحويل بين الخزن', icon: 'wallet', run: () => go('#/cash'), kw: 'cash expense خزنة مصروف توريد', roles: MGMT },
   { grp: 'أوامر', label: 'جهّز طلبيات النهارده', icon: 'truck', run: () => go('#/orders'), kw: 'order طلب', roles: CLIN },
   { grp: 'أوامر', label: 'مواعيد صرف العملاء', icon: 'bell', run: () => go('#/customers'), kw: 'refill مزمن', roles: CLIN },
   { grp: 'أوامر', label: 'افحص سلامة القاعدة', icon: 'shield', run: () => go('#/settings'), kw: 'health فحص', roles: MGMT },
@@ -312,7 +317,7 @@ export function noteDialog() {
     footer: h`<span class="muted" style="margin-inline-end:auto;font-size:13px"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> سجّل · <kbd>←</kbd><kbd>→</kbd> النوع</span><button class="btn quiet" data-close>إلغاء</button><button class="btn" id="ns">سجّل</button>` });
   let sev = 'bug';
   $('#sev', m.el).addEventListener('click', (e) => { const c = e.target.closest('.chip'); if (!c) return; sev = c.dataset.v; $$('#sev .chip', m.el).forEach((x) => x.classList.toggle('on', x === c)); });
-  const area = { pos: 'sales', items: 'stock', expiry: 'stock', orders: 'purchases', customers: 'accounts', suppliers: 'accounts', reports: 'reports' }[location.hash.replace(/^#\/?/, '').split('/')[0]];
+  const area = { pos: 'sales', items: 'stock', expiry: 'stock', orders: 'purchases', purchases: 'purchases', cash: 'accounts', customers: 'accounts', suppliers: 'accounts', reports: 'reports' }[location.hash.replace(/^#\/?/, '').split('/')[0]];
   if (area) $('#na', m.el).value = area;
   $('#ns', m.el).addEventListener('click', async () => {
     const note = $('#nt', m.el).value.trim();

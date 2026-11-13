@@ -15,7 +15,7 @@ export const KEYS = {
     { k: ['F3', 'Ctrl+KeyK'], do: 'palette', t: 'دوّر على أي حاجة: صنف، عميل، أمر' },
     { k: ['F4'], do: 'hints', t: 'وضع الحروف: حرف على كل زرار في الشاشة' },
     { k: ['F5'], do: 'refresh', t: 'حدّث البيانات (من غير ما يضيع حاجة)' },
-    { k: ['Alt+Digit1', 'Alt+Digit2', 'Alt+Digit3', 'Alt+Digit4', 'Alt+Digit5', 'Alt+Digit6', 'Alt+Digit7', 'Alt+Digit8', 'Alt+Digit9'], do: 'nav', t: 'روح للشاشة رقم 1…9 (بترتيب القايمة)' },
+    { k: ['Alt+Digit1', 'Alt+Digit2', 'Alt+Digit3', 'Alt+Digit4', 'Alt+Digit5', 'Alt+Digit6', 'Alt+Digit7', 'Alt+Digit8', 'Alt+Digit9', 'Alt+Digit0'], do: 'nav', t: 'روح للشاشة رقم 1…9 و0 (بترتيب القايمة)' },
     { k: ['Alt+KeyN'], do: 'note', t: 'سجّل ملاحظة في التجربة' },
     { k: ['Alt+KeyT'], do: 'theme', t: 'نهاري / ليلي' },
     { k: ['Alt+KeyK'], do: 'colors', t: 'ألوان البرنامج (نفس ألوان البوت والموقع)' },
@@ -170,7 +170,7 @@ export function guide({ routes, can, screenKeys = [] }) {
   const kbd = (k) => h`<kbd>${keyLabel(k)}</kbd>`;
   const list = (items) => h`<div class="kb-list">${items.map(([keys, t]) => h`<div class="kb-row"><span class="kb-keys">${keys.map((k, i) => h`${i ? ' ' : ''}${kbd(k)}`)}</span><span>${t}</span></div>`)}</div>`;
   const glob = KEYS.global.filter((g) => g.do !== 'nav').map((g) => [g.k.slice(0, 2), g.t]);
-  const nav = navs.slice(0, 9).map((r, i) => [['Alt+Digit' + (i + 1)], r.label]);
+  const nav = navs.slice(0, 10).map((r, i) => [['Alt+Digit' + ((i + 1) % 10)], r.label]);
   const scr = screenKeys.map((s) => [s.k, s.t]);
   const hot = [...pageKeys].map(([k, t]) => [[k.split('+').map((p) => (p.length === 1 ? 'Key' + p.toUpperCase() : p[0].toUpperCase() + p.slice(1))).join('+')], t]);
   const row = [...rowKeys].map(([k, t]) => [[codeFor(k)], t + ' (في الصف المختار)']);
@@ -189,7 +189,7 @@ export function printSheet(navs) {
   sheet.className = 'print-sheet';
   const rowsOf = (arr) => arr.map((g) => `<tr><td>${g.k.slice(0, 3).map((k) => `<kbd>${esc(keyLabel(k))}</kbd>`).join(' ')}</td><td>${esc(g.t)}</td></tr>`).join('');
   sheet.innerHTML = `<h1>اختصارات برنامج صيدلية عسكر</h1>
-    <h2>في كل الشاشات</h2><table>${rowsOf(KEYS.global.filter((g) => g.do !== 'nav'))}${navs.slice(0, 9).map((r, i) => `<tr><td><kbd>Alt+${i + 1}</kbd></td><td>${esc(r.label)}</td></tr>`).join('')}</table>
+    <h2>في كل الشاشات</h2><table>${rowsOf(KEYS.global.filter((g) => g.do !== 'nav'))}${navs.slice(0, 10).map((r, i) => `<tr><td><kbd>Alt+${(i + 1) % 10}</kbd></td><td>${esc(r.label)}</td></tr>`).join('')}</table>
     <h2>البيع</h2><table>${rowsOf(POS_KEYS)}</table>
     <h2>أي قايمة أو جدول</h2><table>${rowsOf(KEYS.lists)}</table>
     <p>مش لاقي اختصار؟ F4 بيحط حرف على كل زرار في الشاشة.</p>`;
@@ -257,7 +257,7 @@ export function initKeyboard(api) {
       return;
     }
 
-    if (act === 'nav') { const n = +c.slice(-1); e.preventDefault(); api.nav(n); return; }
+    if (act === 'nav') { const d = +c.slice(-1); e.preventDefault(); api.nav(d === 0 ? 10 : d); return; }
     if (act && act !== 'back') {
       // F-keys وAlt شغالين حتى وإنت بتكتب؛ ? بس لما مش بتكتب
       if (c === 'Shift+Slash' && typing(e.target)) return;
