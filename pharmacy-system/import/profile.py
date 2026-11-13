@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """(3ب) معنى أكواد فارمافلاي: أعداد ومجاميع بس، من غير ولا اسم عميل ولا تليفون ولا ملاحظة.
 
-الاستخدام:  python3 profile.py <الشغل>
-بيكتب <الشغل>/profile.md. بيجاوب على أسئلة ملف الربط (MAPPING.md): المرتجع إزاي، السعر للعلبة ولا للوحدة، الخصم نسبة
+الاستخدام:  python3 profile.py <الشغل> [2]
+بيكتب <الشغل>/profile.md (أو profile2.md للجولة التانية). بيجاوب على أسئلة ملف الربط (MAPPING.md): المرتجع إزاي، السعر للعلبة ولا للوحدة، الخصم نسبة
 ولا مبلغ، أكواد CashFlow، التليفونات فين، والأرصدة. كل سؤال استعلام لوحده: لو واحد وقع بيتكتب الغلط ويكمّل.
 قراية بس. نفس الاتصال بتاع discover.py (MSSQL_HOST / MSSQL_USER / MSSQL_PASSWORD / MSSQL_DB).
 """
@@ -301,6 +301,163 @@ Q = [
         union all select 'posItemsX', count(*), sum(case when p.ID is not null then 1 else 0 end) from posItemsX x left join posItems p on p.ID = x.ID"""),
 ]
 
+# الجولة التانية: python3 profile.py <الشغل> 2  ← profile2.md
+Q2 = [
+    ('خصم التذكرة: العميل دفع كام؟ (تذاكر بيع فيها خصم ومن غير عميل)', f"""
+        select count(*) n,
+               sum(case when abs(PaidByCustomer - (Total - Discount)) < 0.05 then 1 else 0 end) paid_eq_total_minus_disc,
+               sum(case when abs(PaidByCustomer - Total) < 0.05 then 1 else 0 end) paid_eq_total,
+               sum(case when abs(xPaid - (Total - Discount)) < 0.05 then 1 else 0 end) xpaid_eq_total_minus_disc,
+               sum(case when abs(xPaid - Total) < 0.05 then 1 else 0 end) xpaid_eq_total,
+               sum(case when PaidByCustomer > Total + 0.05 then 1 else 0 end) paid_more_than_total,
+               sum(case when Discount > Total then 1 else 0 end) disc_above_total,
+               sum(case when abs(DiscountOnItems - Discount) < 0.05 then 1 else 0 end) disc_eq_disc_on_items
+        from (select top {SAMPLE} * from posTickets where Discount <> 0 and SalesReturn = 1 and isnull(CustomerID, 0) = 0 order by ID desc) t"""),
+    ('xPaid و PaidByCustomer في تذاكر البيع من غير عميل ومن غير خصم', f"""
+        select count(*) n,
+               sum(case when abs(PaidByCustomer - Total) < 0.05 then 1 else 0 end) paid_eq_total,
+               sum(case when PaidByCustomer > Total + 0.05 then 1 else 0 end) paid_more,
+               sum(case when PaidByCustomer < Total - 0.05 then 1 else 0 end) paid_less,
+               sum(case when abs(xPaid - Total) < 0.05 then 1 else 0 end) xpaid_eq_total,
+               sum(case when xPaid = 0 then 1 else 0 end) xpaid_zero
+        from (select top {SAMPLE} * from posTickets where Discount = 0 and SalesReturn = 1 and isnull(CustomerID, 0) = 0 and Total > 0 order by ID desc) t"""),
+    ('رصيد العميل في التذكرة: الخصم بيقلل المديونية؟', f"""
+        select count(*) n,
+               sum(case when abs(NewBalance - (prev + Total - PaidByCustomer)) < 0.05 then 1 else 0 end) total_minus_paid,
+               sum(case when abs(NewBalance - (prev + Total - Discount - PaidByCustomer)) < 0.05 then 1 else 0 end) total_minus_disc_minus_paid,
+               sum(case when Discount <> 0 then 1 else 0 end) with_discount,
+               sum(case when Discount <> 0 and abs(NewBalance - (prev + Total - Discount - PaidByCustomer)) < 0.05 then 1 else 0 end) disc_rows_eq_minus_disc,
+               sum(case when Discount <> 0 and abs(NewBalance - (prev + Total - PaidByCustomer)) < 0.05 then 1 else 0 end) disc_rows_eq_no_disc
+        from (select top {SAMPLE} NewBalance, Total, Discount, PaidByCustomer,
+                     lag(NewBalance) over (partition by CustomerID order by ID) prev
+              from posTickets where CustomerID > 0 order by ID desc) x where prev is not null"""),
+    ('التذاكر اللي رصيدها مش ماشي: فيه حركة خزنة للعميل بينها وبين اللي قبلها؟', f"""
+        with x as (select top {SAMPLE} ID, CustomerID, ztime, NewBalance, Total, PaidByCustomer,
+                          lag(NewBalance) over (partition by CustomerID order by ID) prev,
+                          lag(ztime) over (partition by CustomerID order by ID) prev_t
+                   from posTickets where CustomerID > 0 order by ID desc)
+        select count(*) n_mismatch,
+               sum(case when f.n > 0 then 1 else 0 end) with_cashflow_between,
+               sum(case when abs(x.NewBalance - (x.prev + x.Total - x.PaidByCustomer + isnull(f.s, 0))) < 0.05 then 1 else 0 end) explained_plus,
+               sum(case when abs(x.NewBalance - (x.prev + x.Total - x.PaidByCustomer - isnull(f.s, 0))) < 0.05 then 1 else 0 end) explained_minus
+        from x outer apply (select count(*) n, sum(Amount) s from CashFlow c
+                            where c.DealerID = x.CustomerID and c.ztime > x.prev_t and c.ztime <= x.ztime) f
+        where x.prev is not null and abs(x.NewBalance - (x.prev + x.Total - x.PaidByCustomer)) >= 0.05"""),
+    ('التحصيل متسجل مرتين؟ (كود 2 في الخزنة ↔ تذكرة صفر لنفس العميل في نفس الوقت)', """
+        select year(c.ztime) yr, count(*) op2,
+               sum(case when t.ID is not null then 1 else 0 end) has_zero_ticket_same_time,
+               sum(case when t.ID is not null and abs(t.PaidByCustomer - c.Amount) < 0.05 then 1 else 0 end) same_amount
+        from CashFlow c outer apply (select top 1 ID, PaidByCustomer from posTickets t
+                                     where t.CustomerID = c.DealerID and t.Total = 0 and abs(datediff(second, t.ztime, c.ztime)) <= 120) t
+        where c.Operation = 2 group by year(c.ztime) order by yr"""),
+    ('تذاكر الصفر (تحصيل) لكل سنة، ولها كود 2 في الخزنة؟', """
+        select year(t.ztime) yr, count(*) zero_tickets, sum(case when t.CustomerID > 0 then 1 else 0 end) with_customer,
+               sum(case when c.ID is not null then 1 else 0 end) has_op2_same_time
+        from posTickets t outer apply (select top 1 ID from CashFlow c where c.Operation = 2 and c.DealerID = t.CustomerID
+                                       and abs(datediff(second, t.ztime, c.ztime)) <= 120) c
+        where t.Total = 0 group by year(t.ztime) order by yr"""),
+    ('تذاكر البيع على حساب (آجل) ليها كود 2 في الخزنة باللي اتدفع؟', f"""
+        select count(*) n, sum(case when c.ID is not null then 1 else 0 end) has_op2,
+               sum(case when c1.ID is not null then 1 else 0 end) has_op1
+        from (select top {SAMPLE} * from posTickets where CustomerID > 0 and Total > 0 and PaidByCustomer > 0 order by ID desc) t
+        outer apply (select top 1 ID from CashFlow c where c.Operation = 2 and c.DealerID = t.CustomerID and abs(datediff(second, t.ztime, c.ztime)) <= 120) c
+        outer apply (select top 1 ID from CashFlow c where c.Operation = 1 and abs(datediff(second, t.ztime, c.ztime)) <= 5 and abs(c.Amount - t.PaidByCustomer) < 0.05) c1"""),
+    ('أكواد الخزنة اللي ليها عميل/مورد (2 و 4 و 9 و 13 و 15 و 55): الإشارة', """
+        select Operation, case when d.IsVendor = 1 then 'vendor' else 'customer' end who, count(*) n,
+               sum(case when Amount > 0 then 1 else 0 end) pos, sum(case when Amount < 0 then 1 else 0 end) neg,
+               round(sum(Amount), 0) s, min(ztime) first, max(ztime) last
+        from CashFlow f join Cards d on d.Id = f.DealerID where f.DealerID > 0
+        group by Operation, case when d.IsVendor = 1 then 'vendor' else 'customer' end order by Operation"""),
+    ('Cards.Credit = رصيد العميل النهارده؟ (آخر NewBalance في التذاكر)', """
+        with last_t as (select CustomerID, NewBalance, row_number() over (partition by CustomerID order by ID desc) rn
+                        from posTickets where CustomerID > 0)
+        select count(*) customers_with_tickets,
+               sum(case when abs(c.Credit - l.NewBalance) < 0.05 then 1 else 0 end) credit_eq_last_balance,
+               sum(case when abs(c.Credit + l.NewBalance) < 0.05 then 1 else 0 end) credit_eq_minus_last,
+               sum(case when abs(l.NewBalance) >= 0.05 then 1 else 0 end) last_balance_nz,
+               sum(case when abs(c.Credit) >= 0.05 then 1 else 0 end) credit_nz,
+               round(sum(l.NewBalance), 0) sum_last_balance, round(sum(c.Credit), 0) sum_credit
+        from last_t l join Cards c on c.Id = l.CustomerID where l.rn = 1"""),
+    ('آخر حركة لكل عميل: تذكرة ولا خزنة؟ (رصيده النهارده من فين)', """
+        with lt as (select CustomerID, max(ztime) t from posTickets where CustomerID > 0 group by CustomerID),
+             lc as (select DealerID, max(ztime) t from CashFlow where DealerID > 0 group by DealerID)
+        select count(*) n, sum(case when lc.t > lt.t then 1 else 0 end) cashflow_after_last_ticket
+        from lt left join lc on lc.DealerID = lt.CustomerID"""),
+    ('رصيد المورد: Cards.Credit ↔ مشترياته − مرتجعاته − اللي اتدفعله', """
+        with p as (select vendor_id, sum(total) s from PurchaseInvoices group by vendor_id),
+             f as (select DealerID, sum(Amount) s from CashFlow where DealerID > 0 group by DealerID)
+        select count(*) vendors, sum(case when abs(c.Credit) >= 0.05 then 1 else 0 end) credit_nz,
+               sum(case when abs(c.Credit - (isnull(p.s, 0) + isnull(f.s, 0))) < 1 then 1 else 0 end) credit_eq_purch_plus_cash,
+               sum(case when abs(c.Credit + (isnull(p.s, 0) + isnull(f.s, 0))) < 1 then 1 else 0 end) credit_eq_minus,
+               round(sum(c.Credit), 0) sum_credit, round(sum(isnull(p.s, 0) + isnull(f.s, 0)), 0) sum_purch_plus_cash
+        from Cards c left join p on p.vendor_id = c.Id left join f on f.DealerID = c.Id where c.IsVendor = 1"""),
+    ('إجمالي فاتورة الشرا و AmountAdjustment', f"""
+        with i as (select top {SAMPLE} * from PurchaseInvoices order by ID desc),
+        l as (select p.inv_id, sum(p.CostPrice * (p.packs + p.units / nullif(cast(it.Parts as float), 0))) c
+              from PurchaseItems p join Items it on it.ID = p.item_id where p.inv_id in (select ID from i) group by p.inv_id)
+        select count(*) n,
+               sum(case when abs(l.c - i.total) < 0.5 then 1 else 0 end) total_eq_lines,
+               sum(case when abs(abs(l.c) - abs(i.total)) < 0.5 then 1 else 0 end) abs_total_eq_lines,
+               sum(case when abs(abs(l.c) + i.AmountAdjustment - abs(i.total)) < 0.5 then 1 else 0 end) abs_lines_plus_adj,
+               sum(case when abs(abs(l.c) - i.AmountAdjustment - abs(i.total)) < 0.5 then 1 else 0 end) abs_lines_minus_adj,
+               sum(case when abs(i.AmountAdjustment) < 1 then 1 else 0 end) adj_under_1,
+               max(abs(i.AmountAdjustment)) adj_max, round(avg(abs(i.AmountAdjustment)), 2) adj_avg,
+               sum(case when abs(i.TotalTaxless - i.total) < 0.5 then 1 else 0 end) taxless_eq_total
+        from i join l on l.inv_id = i.ID"""),
+    ('فواتير الشرا اللي مجموعها مش مطابق: الفرق قد إيه؟', f"""
+        with i as (select top {SAMPLE} * from PurchaseInvoices order by ID desc),
+        l as (select p.inv_id, sum(p.CostPrice * (p.packs + p.units / nullif(cast(it.Parts as float), 0))) c,
+                     sum(p.Returned * p.CostPrice) r, sum(p.bonus) b
+              from PurchaseItems p join Items it on it.ID = p.item_id where p.inv_id in (select ID from i) group by p.inv_id)
+        select case when abs(abs(l.c) - abs(i.total)) < 0.5 then 'ok' when l.r > 0 then 'has_returned' when l.b > 0 then 'has_bonus'
+                    when abs(i.VatValue) > 0 then 'has_vat' else 'other' end why, count(*) n,
+               round(avg(abs(l.c) - abs(i.total)), 2) avg_diff, round(avg(abs(i.total)), 0) avg_total,
+               sum(case when abs(abs(l.c) - l.r - abs(i.total)) < 0.5 then 1 else 0 end) eq_after_returned
+        from i join l on l.inv_id = i.ID group by case when abs(abs(l.c) - abs(i.total)) < 0.5 then 'ok' when l.r > 0 then 'has_returned'
+                    when l.b > 0 then 'has_bonus' when abs(i.VatValue) > 0 then 'has_vat' else 'other' end"""),
+    ('مرتجع الشرا: الكمية والإجمالي بأنهي إشارة؟', """
+        select i.SalesReturn, count(*) lines, sum(case when p.packs > 0 then 1 else 0 end) pos_packs,
+               sum(case when p.Returned <> 0 then 1 else 0 end) returned_nz, sum(case when i.total < 0 then 1 else 0 end) neg_total_lines
+        from PurchaseItems p join PurchaseInvoices i on i.ID = p.inv_id group by i.SalesReturn"""),
+    ('سطور تذاكر المرتجع (SalesReturn = 2): الكمية بالسالب؟', """
+        select t.SalesReturn, count(*) lines, sum(case when p.Packs < 0 or p.Units < 0 then 1 else 0 end) negative,
+               sum(case when p.Packs > 0 or p.Units > 0 then 1 else 0 end) positive, sum(case when p.ItemID = 1 then 1 else 0 end) item1
+        from posItems p join posTickets t on t.ID = p.TicketID group by t.SalesReturn"""),
+    ('IsContent = بيع بالشريط/الوحدة؟', """
+        select IsContent, count(*) n, sum(case when Packs <> 0 then 1 else 0 end) packs_nz, sum(case when Units <> 0 then 1 else 0 end) units_nz,
+               sum(case when iParts > 1 then 1 else 0 end) iparts_gt1
+        from posItems group by IsContent"""),
+    ('الباركود المتكرر: قيمته إيه؟ والباقي', """
+        select top 3 barcode, count(*) n from Items group by barcode order by count(*) desc"""),
+    ('الباركود = 100000 + رقم الصنف؟ (ستيكر فارمافلاي)', """
+        select count(*) n, sum(case when barcode = 100000 + ID then 1 else 0 end) eq_100000_plus_id,
+               sum(case when barcode > 999999 then 1 else 0 end) long_barcode
+        from Items where barcode > 0"""),
+    ('أسماء الأصناف: فيها حروف عربي؟', """
+        select count(*) n, sum(case when patindex(N'%[ء-ي]%', cast(name as nvarchar(400))) > 0 then 1 else 0 end) name_arabic,
+               sum(case when patindex(N'%[ء-ي]%', cast(DESCRIPTION as nvarchar(400))) > 0 then 1 else 0 end) descr_arabic,
+               sum(case when patindex(N'%[ء-ي]%', cast(NameOld as nvarchar(400))) > 0 then 1 else 0 end) nameold_arabic
+        from Items"""),
+    ('تواريخ الشرا الغلط (inv_date بعد النهارده أو قبل 2018)', """
+        select count(*) n, sum(case when inv_date > getdate() then 1 else 0 end) future,
+               sum(case when inv_date < '2018-01-01' then 1 else 0 end) before_2018,
+               sum(case when abs(datediff(day, inv_date, ztime)) > 30 then 1 else 0 end) far_from_entry_30d
+        from PurchaseInvoices"""),
+    ('صلاحيات سطور البيع والشرا والرصيد: سنين غريبة', """
+        select 'posItems.ExpDate' col, sum(case when ExpDate > '2040-01-01' then 1 else 0 end) after_2040,
+               sum(case when ExpDate < '2015-01-01' then 1 else 0 end) before_2015 from posItems
+        union all select 'PurchaseItems.expirydate', sum(case when expirydate > '2040-01-01' then 1 else 0 end),
+               sum(case when expirydate < '2015-01-01' then 1 else 0 end) from PurchaseItems
+        union all select 'Work.exp_date', sum(case when exp_date > '2040-01-01' then 1 else 0 end),
+               sum(case when exp_date < '2015-01-01' then 1 else 0 end) from Work"""),
+    ('الصلاحية بتحدد التشغيلة؟ (أكتر من صف في Work لنفس الصنف والمخزن والصلاحية)', """
+        select count(*) dup_groups from (select item_id, StoreID, exp_date from Work group by item_id, StoreID, exp_date having count(*) > 1) x"""),
+    ('المخزن 8 (موجود في التحويل ومش في Stores)', """
+        select 'Transfers' t, count(*) n from Transfers where FromId = 8 or ToId = 8
+        union all select 'Work', count(*) from Work where StoreID = 8
+        union all select 'posItems', count(*) from posItems where StoreID = 8"""),
+]
+
 
 def md_table(cols, rows):
     def cell(v):
@@ -320,10 +477,11 @@ def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
     work = sys.argv[1]
+    second = len(sys.argv) > 2 and sys.argv[2] == '2'
     conn = connect(work)
     cur = conn.cursor()
     parts = ['# معنى أكواد فارمافلاي (أعداد بس)\n', f'المقارنات التقيلة على آخر {SAMPLE:,} صف.\n']
-    for title, sql in Q:
+    for title, sql in (Q2 if second else Q):
         t0 = time.time()
         try:
             cur.execute(sql)
@@ -337,7 +495,7 @@ def main():
             except Exception:
                 pass
         print(f'{title} ({time.time() - t0:.1f} ث)', flush=True)
-    path = os.path.join(work, 'profile.md')
+    path = os.path.join(work, 'profile2.md' if second else 'profile.md')
     with open(path, 'w', encoding='utf-8') as f:
         f.write('\n'.join(parts))
     print(f'اتكتب: {path}')
