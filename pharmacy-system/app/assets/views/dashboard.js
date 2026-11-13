@@ -2,6 +2,13 @@
 import { h, render, icon, money, moneyR, int, pct, qty, time, ago, skeleton, errorBox, $, inDays } from '../ui.js';
 import { barLine, spark } from '../charts.js';
 
+// فحص السلامة بيقرا الدفاتر كلها (تقيل على سنين داتا): مرة كل ربع ساعة، والباقي من النسخة المحفوظة
+async function cachedHealth(api) {
+  try { const c = JSON.parse(sessionStorage.getItem('asker.health') || 'null'); if (c && Date.now() - c.at < 15 * 60e3) return c.rows; } catch (e) {}
+  const rows = await api.rpc('health_check').catch(() => null);
+  if (rows) try { sessionStorage.setItem('asker.health', JSON.stringify({ at: Date.now(), rows })); } catch (e) {}
+  return rows;
+}
 const hello = () => { const hr = new Date().getHours(); return hr < 12 ? 'صباح الخير' : hr < 18 ? 'نهارك سعيد' : 'مساء الخير'; };
 
 export default async function dashboard({ el, api, state, can }) {
@@ -31,13 +38,13 @@ export default async function dashboard({ el, api, state, can }) {
     try {
       [d, daily, hourly, top, cash, feed, refills, health] = await Promise.all([
         api.one('v_dashboard'),
-        api.select('v_sales_daily', { order: 'business_day.desc', limit: 15 }),
+        api.select('v_sales_daily', { business_day: 'gte.' + new Date(Date.now() - 16 * 864e5).toISOString().slice(0, 10), order: 'business_day.desc', limit: 15 }),   // آخر أسبوعين بس (السريع)
         api.select('v_sales_hourly', { order: 'hr' }),
         api.select('v_top_items_today', { order: 'value.desc', limit: 7 }),
         can(['owner', 'manager']) ? api.select('v_cash_balances', { order: 'id' }) : [],
         api.select('sales', { select: 'id,no,at,total,on_credit,channel,customers(name)', status: 'eq.posted', order: 'at.desc', limit: 7 }),
         api.select('v_refills_due', { order: 'days_late.desc', limit: 5 }),
-        can(['owner', 'manager']) ? api.rpc('health_check').catch(() => null) : null,
+        can(['owner', 'manager']) ? cachedHealth(api) : null,
       ]);
     } catch (e) { render($('#kpis', el), errorBox(e)); return; }
     if (!d) return;
