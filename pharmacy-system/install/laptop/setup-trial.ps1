@@ -2,6 +2,8 @@
   تسطيب تجريبي لبرنامج صيدلية عسكر على اللاب (مرة واحدة). لم يُختبر على ويندوز لسه.
   بينزّل PostgreSQL وPostgREST وCaddy في $Root، يعمل القاعدة من ملفات db\، يعمل الأسرار، ويسجّل المالك.
   -ResetDb : يمسح القاعدة ويعملها من الأول (عشان نعيد النقل من فارمافلاي)، والأسرار زي ما هي.
+  -OwnerPasswordFile <ملف> : كلمة سر المالك من ملف بدل ما تتكتب (لـ Claude على اللاب). الملف بيتمسح بعدها،
+     والمالك يغيّرها من الإعدادات أول ما يدخل.
   التشغيل: powershell -ExecutionPolicy Bypass -File setup-trial.ps1
 #>
 param(
@@ -10,6 +12,7 @@ param(
   [int]$ApiPort = 3010,
   [string]$OwnerUser = "taher",
   [switch]$ResetDb,
+  [string]$OwnerPasswordFile,
   [switch]$Demo,          # بيانات تجريبية (وهمية) عشان تشوف الشاشات مليانة قبل نقل فارمافلاي. بعدين: -ResetDb من غيره
   [string]$PgZipUrl = "https://get.enterprisedb.com/postgresql/postgresql-16.4-1-windows-x64-binaries.zip",
   [string]$PostgrestUrl = "https://github.com/PostgREST/postgrest/releases/download/v12.2.3/postgrest-v12.2.3-windows-x64.zip",
@@ -86,8 +89,14 @@ if ("$exists".Trim() -ne "1") {
     Say "تحميل البيانات التجريبية (دقيقة تقريبًا)"
     Invoke-Psql "asker" (Join-Path $Pharmacy "tools\demo-seed.sql")
   } else {
-  $sec = Read-Host "كلمة سر المالك ($OwnerUser)، 8 حروف على الأقل" -AsSecureString
-  $plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
+  if ($OwnerPasswordFile) {
+    $plain = (Get-Content $OwnerPasswordFile -Raw -Encoding UTF8).Trim()
+    Remove-Item $OwnerPasswordFile -ErrorAction SilentlyContinue
+    if ($plain.Length -lt 8) { throw "كلمة سر المالك في الملف أقل من 8 حروف" }
+  } else {
+    $sec = Read-Host "كلمة سر المالك ($OwnerUser)، 8 حروف على الأقل" -AsSecureString
+    $plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
+  }
   $tmp = Join-Path $Secrets "init.tmp.sql"
   Write-Utf8 $tmp @"
 insert into auth.config values ('jwt_secret', '$jwt');
