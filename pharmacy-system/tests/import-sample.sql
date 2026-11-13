@@ -8,7 +8,7 @@ insert into ph.settings (pharmacy_name) values ('صيدلية تجربة');
 insert into ph.branches (name) values ('الفرع الرئيسي');
 insert into ph.cash_accounts (branch_id, name, kind) values (1, 'درج 1', 'drawer');
 insert into ph.payment_methods values ('cash', 'كاش', 1), ('credit', 'آجل', null);
-insert into auth.users values ('00000000-0000-0000-0000-0000000000a1');
+insert into auth.users (id, username, password_hash) values ('00000000-0000-0000-0000-0000000000a1', 'owner', '-');
 insert into ph.staff (user_id, branch_id, name, role) values ('00000000-0000-0000-0000-0000000000a1', 1, 'المالك', 'owner');
 
 insert into stage.locations (code, name, kind, supplier_code, counts_as_stock, is_default_sale) values

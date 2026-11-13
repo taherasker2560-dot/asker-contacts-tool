@@ -61,12 +61,13 @@ $$;
 -- الموظفين والأدوار
 --   owner = كل حاجة · manager = كل حاجة غير الإعدادات والموظفين · pharmacist = بيع وشرا ومخزن وعملاء
 --   cashier = بيع وتحصيل من العملاء · delivery = طلباته بس
+--   bot = بوت النواقص: يقرا الأصناف والرصيد والنواقص والعروض، ويكتب عروض الموردين والطلبيات. مالوش فلوس ولا عملاء ولا بيع
 -- -----------------------------------------------------------------------------------------------------
 create table ph.staff (
   user_id            uuid primary key references auth.users (id),
   branch_id          smallint references ph.branches (id),
   name               text not null check (char_length(name) between 2 and 80),
-  role               text not null check (role in ('owner', 'manager', 'pharmacist', 'cashier', 'delivery')),
+  role               text not null check (role in ('owner', 'manager', 'pharmacist', 'cashier', 'delivery', 'bot')),
   can_override_limit boolean not null default false,   -- يبيع آجل فوق حد العميل
   active             boolean not null default true,
   created_at         timestamptz not null default now()

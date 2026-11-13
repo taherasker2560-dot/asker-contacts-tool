@@ -274,7 +274,7 @@ const SECTIONS = [
   {
     id: 'settings', label: 'الإعدادات', icon: 'settings', viaGear: true, why: 'من الترس اللي فوق.',
     tabs: [
-      { id: 'staff', label: 'الموظفين والأدوار', apps: ['admin'], db: 'staff · RLS', what: 'مالك، مدير، صيدلي، كاشير، توصيل. كل دور يشوف ويعمل شغله بس.' },
+      { id: 'staff', label: 'اليوزرات والأدوار', apps: ['admin'], db: 'auth.users · staff · issue_bot_token · revoke_tokens', what: 'مالك، مدير، صيدلي، كاشير، توصيل، وبوت. كل يوزر بكلمة سر (والبوت بمفتاح تلغيه في أي لحظة)، وكل دور يشوف شغله بس.' },
       { id: 'import', label: 'النقل من فارمافلاي', apps: ['admin'], db: 'import_history · stage · import_issues', what: 'كل تاريخ فارمافلاي من 2018 بتواريخه وأرقامه، والأرصدة بتطابق فارمافلاي النهارده، ومشاكل التاريخ بتظهرلك.' },
       { id: 'audit', label: 'سجل التعديلات', apps: ['admin'], db: 'audit_log', what: 'مين غيّر سعر أو حد عميل أو فاتورة وإمتى.' },
       { id: 'pref', label: 'إعدادات الصيدلية', apps: ['admin'], db: 'settings', what: 'بداية اليوم (6 الصبح)، البيع قبل إدخال الفاتورة مسموح ولا لأ، تنبيه الصلاحية.' }
@@ -283,7 +283,7 @@ const SECTIONS = [
   {
     id: 'links', label: 'الربط مع شغلنا', icon: 'links', mapOnly: true, why: 'كله على نفس القاعدة. مفيش سحب داتا.',
     tabs: [
-      { id: 'bot', label: 'بوت النواقص', apps: ['mobile'], db: 'v_shortages · supplier_offers · purchase_orders', what: 'النواقص والوارد والطلبيات والمخزون من القاعدة على طول، و«اتطلب» بيكتب طلبية.' },
+      { id: 'bot', label: 'بوت النواقص', apps: ['mobile'], db: 'يوزر bot · v_shortages · supplier_offers · purchase_orders', what: 'بياخد يوزر من البرنامج: يقرا النواقص والمخزون وأحسن خصم، ويكتب عروض الواتس و«اتطلب». بنفس كوده الحالي (supabase-js).' },
       { id: 'store', label: 'الموقع', apps: ['web'], db: 'store_catalog · store_place_order', what: 'متاح/تحت الطلب من الرصيد الحقيقي لحظيًا، من غير ما يبان رقم الرصيد.' },
       { id: 'tasker', label: 'موبايل الواتس (Tasker)', apps: ['mobile'], db: 'device_keys · supplier_offers', what: 'وارد الموردين بيتقري ويتسجل عروض على أصنافنا، والموبايل بينطق.' },
       { id: 'contacts', label: 'أداة التواصل', apps: ['mobile'], db: 'customers · outreach_log', what: 'نفس جدول العملاء بدل ملف CSV على الموبايل.' },
@@ -293,7 +293,7 @@ const SECTIONS = [
 ];
 
 const FIXES = [
-  ['الداتا محبوسة في جهاز الصيدلية', 'قاعدة على السحابة، كل بيعة بتبان على الموبايل لحظتها'],
+  ['الداتا محبوسة في جهاز الصيدلية', 'البرنامج على نفس الجهاز، بس بيدّي يوزر للبوت والموبايل يقروا ويكتبوا لحظيًا'],
   ['البيع بطيء وقت الزحمة («البيع المؤقت»)', 'كاشير بالباركود والكيبورد، ويشتغل والنت واقف'],
   ['بيع من غير رصيد، ومن تشغيلة غلط، ومنتهي', 'القاعدة بترفضهم، والأقرب صلاحية تلقائي'],
   ['التذاكر بتتمسح', 'مفيش مسح: مرتجع أو تسوية، وكل تعديل متسجل'],
@@ -313,6 +313,7 @@ const RULES = [
 ];
 
 const DB_GROUPS = [
+  { name: 'الدخول', file: '00-auth', t: 'users · login · bot tokens · revoke · lockout' },
   { name: 'الأساس', file: '01-core', t: 'settings · branches · staff · doc_counters · attachments · audit_log' },
   { name: 'الأصناف', file: '02-catalog', t: 'items · item_barcodes · manufacturers · categories · generics · price_changes' },
   { name: 'العملاء والموردين', file: '03-partners', t: 'customers · customer_meds · suppliers · supplier_reps · supplier_item_names' },
@@ -475,10 +476,10 @@ function drawMap() {
 
 // ---------- القاعدة ----------
 function drawDb() {
-  let html = `<div class="lead"><p><b>PostgreSQL</b> في مكان لوحده (<span class="mono">schema ph</span>): 57 جدول، 13 تقرير لحظي، 11 دالة ترحيل، ودالة النقل من فارمافلاي. اتجربت على يوم شغل كامل (77 اختبار)، وكاشيرين على آخر علبة، والنقل على تاريخ 2018–2026 (38 اختبار)، وعلى حجم 8 سنين في أقل من دقيقتين.</p></div>
+  let html = `<div class="lead"><p><b>PostgreSQL</b> متسطب على كمبيوتر الصيدلية (<span class="mono">schema ph</span>)، والدخول بيوزرات: 57 جدول، 13 تقرير لحظي، 11 دالة ترحيل، ودالة النقل من فارمافلاي. اتجربت على يوم شغل كامل (77 اختبار)، وكاشيرين على آخر علبة، والنقل على تاريخ 2018–2026 (38 اختبار)، وعلى حجم 8 سنين في أقل من دقيقتين، والدخول والبوت عن طريق HTTP (19 اختبار).</p></div>
     <section class="section"><header><div><h2>قواعد القاعدة</h2><p class="why">دي اللي بتخليها أثبت من برامج كتير.</p></div></header><ol class="rules">${RULES.map((r) => `<li>${r}</li>`).join('')}</ol></section>
     <section class="section"><header><div><h2>كل مستند بيعمل إيه</h2><p class="why">في عملية واحدة.</p></div></header><div class="flow">${FLOW.map(([a, b]) => `<div class="step"><b>${a}</b><span>${b}</span></div>`).join('')}</div></section>
-    <section class="section"><header><div><h2>الجداول</h2><p class="why">11 ملف في الفولدر <span class="mono">pharmacy-system/db</span></p></div></header><div class="rows">`;
+    <section class="section"><header><div><h2>الجداول</h2><p class="why">12 ملف في الفولدر <span class="mono">pharmacy-system/db</span></p></div></header><div class="rows">`;
   for (const g of DB_GROUPS) {
     html += `<div class="row"><span class="name">${g.name}</span><span class="tags"><span class="mono">${g.file}.sql</span></span><p class="mono">${esc(g.t)}</p></div>`;
   }

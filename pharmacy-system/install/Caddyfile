@@ -1,0 +1,14 @@
+# بوابة البرنامج على كمبيوتر الصيدلية (Caddy):
+#   /rest/v1/*  ← PostgREST (نفس عنوان Supabase، فكود البوت بـ supabase-js بيشتغل زي ما هو)
+#   الباقي      ← شاشات البرنامج (الكاشير والإدارة)
+# الكمبيوترات التانية في الصيدلية بتفتح http://<اسم كمبيوتر الصيدلية>:8080
+{$ASKER_LISTEN::8080} {
+	encode gzip
+	handle_path /rest/v1/* {
+		reverse_proxy {$ASKER_POSTGREST:127.0.0.1:3000}
+	}
+	handle {
+		root * {$ASKER_APP_DIR:C:/Asker/app}
+		file_server
+	}
+}

@@ -28,7 +28,7 @@ const ok = (cond, msg) => { if (cond) console.log('OK  ', msg); else { failed++;
     // القاعدة
     await page.click('#modeDb');
     ok(await page.locator('#dbView .rules li').count() === 8, `${scheme}: قواعد القاعدة الـ 8`);
-    ok(await page.locator('#dbView .row').count() === 11, `${scheme}: ملفات القاعدة الـ 11`);
+    ok(await page.locator('#dbView .row').count() === 12, `${scheme}: ملفات القاعدة الـ 12`);
     ok(await noSideScroll(), `${scheme}: القاعدة من غير سكرول جانبي`);
     if (shotsDir) await page.screenshot({ path: path.join(shotsDir, `db-${scheme}.png`), fullPage: true });
 

@@ -110,3 +110,103 @@ grant execute on function
   ph.post_adjustment(jsonb), ph.norm_phone(text), ph.importing()
   to authenticated;
 grant execute on function ph.store_catalog(text, integer), ph.store_place_order(jsonb) to anon, authenticated;
+
+-- -----------------------------------------------------------------------------------------------------
+-- البوت (يوزر من نوع bot): يقرا اللي محتاجه ويكتب عروض الموردين والطلبيات، ومالوش فلوس ولا عملاء ولا بيع
+-- -----------------------------------------------------------------------------------------------------
+do $$
+declare t text;
+begin
+  foreach t in array array['items', 'item_barcodes', 'generics', 'categories', 'manufacturers', 'locations', 'batches',
+    'stock_balances', 'suppliers', 'supplier_reps', 'supplier_item_names', 'item_stock_rules', 'shortage_marks',
+    'supplier_offers', 'purchase_orders', 'purchase_order_lines', 'settings', 'branches'] loop
+    execute format('create policy bot_read on ph.%I for select to authenticated using (ph.has_role(array[''bot'']))', t);
+  end loop;
+  foreach t in array array['supplier_offers', 'supplier_item_names', 'shortage_marks', 'purchase_orders', 'purchase_order_lines', 'attachments'] loop
+    execute format('create policy bot_write on ph.%I for insert to authenticated with check (ph.has_role(array[''bot'']))', t);
+    execute format('create policy bot_update on ph.%I for update to authenticated using (ph.has_role(array[''bot''])) with check (ph.has_role(array[''bot'']))', t);
+  end loop;
+end $$;
+
+-- -----------------------------------------------------------------------------------------------------
+-- اليوزرات (التسطيب المحلي): الدخول، وإضافة موظف أو بوت، ومفتاح البوت، وإلغاء المفاتيح، وكلمة السر
+-- -----------------------------------------------------------------------------------------------------
+create function ph.login(username text, password text) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+#variable_conflict use_variable
+declare r jsonb;
+begin
+  r := auth.login(username, password);
+  if r ? 'token' then
+    select r || jsonb_build_object('name', s.name, 'role', s.role) into r
+    from ph.staff s join auth.users u on u.id = s.user_id where u.username = lower(btrim(username)) and s.active;
+    if not (r ? 'role') then
+      perform set_config('response.status', '403', true);
+      return jsonb_build_object('error', 'اليوزر ده مش متسجل كموظف');
+    end if;
+  end if;
+  return r;
+end $$;
+
+create function ph.create_user(p_username text, p_password text, p_name text, p_role text, p_branch smallint default null) returns uuid
+language plpgsql volatile security definer set search_path = '' as $$
+declare v_id uuid;
+begin
+  perform ph.require_role(array['owner']);
+  insert into auth.users (username, password_hash, kind)
+  values (lower(btrim(p_username)), case when p_role = 'bot' then null else auth.hash_password(p_password) end,
+          case when p_role = 'bot' then 'bot' else 'person' end)
+  returning id into v_id;
+  insert into ph.staff (user_id, branch_id, name, role) values (v_id, coalesce(p_branch, (select min(id) from ph.branches)), p_name, p_role);
+  return v_id;
+end $$;
+
+-- مفتاح البوت: بيتشاف مرة واحدة. المالك بيحطه في إعدادات البوت، ويقدر يلغيه بـ revoke_tokens
+create function ph.issue_bot_token(p_username text, p_days integer default 365) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare u auth.users;
+begin
+  perform ph.require_role(array['owner']);
+  select * into u from auth.users where username = lower(btrim(p_username)) and kind = 'bot' and active;
+  if not found then raise exception 'مفيش بوت بالاسم ده'; end if;
+  return auth.make_token(u, make_interval(days => least(greatest(coalesce(p_days, 365), 1), 730)));
+end $$;
+
+create function ph.revoke_tokens(p_username text) returns void
+language plpgsql volatile security definer set search_path = '' as $$
+begin
+  if not (ph.has_role(array['owner'])
+          or exists (select 1 from auth.users where id = auth.uid() and username = lower(btrim(p_username)))) then
+    raise exception 'مش مسموح' using errcode = '42501';
+  end if;
+  update auth.users set token_version = token_version + 1 where username = lower(btrim(p_username));
+end $$;
+
+create function ph.set_password(p_username text, p_new text) returns void
+language plpgsql volatile security definer set search_path = '' as $$
+begin
+  if not (ph.has_role(array['owner'])
+          or exists (select 1 from auth.users where id = auth.uid() and username = lower(btrim(p_username)))) then
+    raise exception 'مش مسموح' using errcode = '42501';
+  end if;
+  update auth.users set password_hash = auth.hash_password(p_new), token_version = token_version + 1, failed_logins = 0, locked_until = null
+   where username = lower(btrim(p_username)) and kind = 'person';
+  if not found then raise exception 'مفيش يوزر بالاسم ده'; end if;
+end $$;
+
+-- أول مالك (وقت التسطيب، من غير ما حد يكون داخل). بيشتغل مرة واحدة بس
+create function auth.bootstrap_owner(p_username text, p_password text, p_name text) returns uuid
+language plpgsql volatile security definer set search_path = '' as $$
+declare v_id uuid;
+begin
+  if exists (select 1 from auth.users) then raise exception 'فيه يوزرات خلاص: المالك يضيف من البرنامج'; end if;
+  insert into auth.users (username, password_hash) values (lower(btrim(p_username)), auth.hash_password(p_password)) returning id into v_id;
+  insert into ph.staff (user_id, branch_id, name, role, can_override_limit)
+  values (v_id, (select min(id) from ph.branches), p_name, 'owner', true);
+  return v_id;
+end $$;
+revoke all on function auth.bootstrap_owner(text, text, text) from public, anon, authenticated;
+
+grant execute on function ph.login(text, text) to anon, authenticated;
+grant execute on function ph.create_user(text, text, text, text, smallint), ph.issue_bot_token(text, integer),
+  ph.revoke_tokens(text), ph.set_password(text, text) to authenticated;

@@ -3,17 +3,9 @@
 # الاستخدام: DAYS=2920 SALES_PER_DAY=300 PGURL=postgresql:///postgres bash pharmacy-system/tests/scale-import.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
-PGURL="${PGURL:-postgresql:///postgres}"; DAYS="${DAYS:-2920}"; SPD="${SALES_PER_DAY:-300}"
-DB="ph_scale_$$"
-psql "$PGURL" -qX -v ON_ERROR_STOP=1 -c "create database $DB"
-trap 'psql "$PGURL" -qX -c "drop database if exists $DB" >/dev/null' EXIT
-URL="${PGURL%/*}/$DB"
-psql "$PGURL" -qX -c "do \$\$ begin
-  if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
-  if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
-end \$\$"
-psql "$URL" -qX -v ON_ERROR_STOP=1 -f tests/stubs.sql
-for f in db/[0-9][0-9]-*.sql; do psql "$URL" -qX -v ON_ERROR_STOP=1 -f "$f"; done
+. tests/lib.sh
+DAYS="${DAYS:-2920}"; SPD="${SALES_PER_DAY:-300}"
+new_db ph_scale
 psql "$URL" -qX -v ON_ERROR_STOP=1 -v days="$DAYS" -v spd="$SPD" <<'SQL'
 insert into ph.settings (pharmacy_name) values ('قياس');
 insert into ph.branches (name) values ('الفرع');

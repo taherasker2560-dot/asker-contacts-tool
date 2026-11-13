@@ -117,8 +117,9 @@ from (
 ) x
 group by x.item_id;
 
--- النواقص: الرصيد أقل من الحد الأدنى (أو أقل من بيع أسبوع لو مفيش حد متسجل)
-create view ph.v_shortages with (security_invoker = true) as
+-- النواقص: الرصيد أقل من الحد الأدنى (أو أقل من بيع أسبوع لو مفيش حد متسجل).
+-- بتشتغل بصلاحية صاحب القاعدة + شرط الدور، عشان البوت يشوف النواقص من غير ما يشوف فواتير البيع نفسها
+create view ph.v_shortages as
 select i.id as item_id, i.name_en, i.name_ar, i.pack_parts,
        coalesce(o.units, 0)                                   as onhand_units,
        coalesce(s.units, 0)                                   as sold_30d_units,
@@ -137,12 +138,14 @@ left join ph.v_sales_30d s on s.item_id = i.id
 left join ph.item_stock_rules r on r.item_id = i.id
 left join ph.shortage_marks m on m.item_id = i.id
 where i.active and i.track_stock
+  and ph.has_role(array['owner', 'manager', 'pharmacist', 'cashier', 'bot'])
   and (m.deferred_until is null or m.deferred_until < current_date)
   and coalesce(o.units, 0) < coalesce(r.min_units, ceil(coalesce(s.units, 0) * 7 / 30.0))
   and coalesce(r.min_units, ceil(coalesce(s.units, 0) * 7 / 30.0)) > 0;
 
--- أحسن خصم لكل صنف: آخر عرض من كل مورد (وارد أو قايمة في آخر 30 يوم) أو آخر فاتورة شرا فعلية، والأحدث بيكسب
-create view ph.v_best_offer with (security_invoker = true) as
+-- أحسن خصم لكل صنف: آخر عرض من كل مورد (وارد أو قايمة في آخر 30 يوم) أو آخر فاتورة شرا فعلية، والأحدث بيكسب.
+-- نفس فكرة v_shortages: البوت يشوف نسبة الخصم بس، مش الفواتير
+create view ph.v_best_offer as
 with seen as (
   select o.item_id, o.supplier_id, o.discount_pct, o.offered_at as at, o.source
   from ph.supplier_offers o
@@ -165,7 +168,7 @@ select b.item_id, b.supplier_id as best_supplier_id, b.discount_pct as best_pct,
        s2.supplier_id as second_supplier_id, s2.discount_pct as second_pct,
        b.discount_pct - coalesce(s2.discount_pct, b.discount_pct) as gap_pct, b.suppliers_count
 from ranked b left join ranked s2 on s2.item_id = b.item_id and s2.rnk = 2
-where b.rnk = 1;
+where b.rnk = 1 and ph.has_role(array['owner', 'manager', 'pharmacist', 'bot']);
 
 -- -----------------------------------------------------------------------------------------------------
 -- الموقع: كتالوج من غير كميات ولا تكلفة (متاح / تحت الطلب)، وطلب جديد. دول بس اللي anon يقدر يناديهم

@@ -9,8 +9,10 @@ set client_min_messages = notice;
 -- ---------------------------------------------------------------- داتا أساسية (كـ superuser)
 insert into ph.settings (pharmacy_name) values ('صيدلية عسكر');
 insert into ph.branches (name) values ('الفرع الرئيسي');
-insert into auth.users values ('00000000-0000-0000-0000-0000000000a1'), ('00000000-0000-0000-0000-0000000000c1'),
-                              ('00000000-0000-0000-0000-0000000000b1'), ('00000000-0000-0000-0000-0000000000d1');
+insert into auth.users (id, username, password_hash, kind) values
+  ('00000000-0000-0000-0000-0000000000a1', 'owner', '-', 'person'), ('00000000-0000-0000-0000-0000000000c1', 'cashier', '-', 'person'),
+  ('00000000-0000-0000-0000-0000000000b1', 'pharmacist', '-', 'person'), ('00000000-0000-0000-0000-0000000000d1', 'stranger', '-', 'person'),
+  ('00000000-0000-0000-0000-0000000000e1', 'bot', null, 'bot');
 insert into ph.staff (user_id, branch_id, name, role, can_override_limit) values
   ('00000000-0000-0000-0000-0000000000a1', 1, 'المالك', 'owner', true),
   ('00000000-0000-0000-0000-0000000000c1', 1, 'كاشير', 'cashier', false),
@@ -195,6 +197,25 @@ select tst.as_user('00000000-0000-0000-0000-0000000000d1');
 select tst.eq((select count(*) from ph.items), 0::bigint, 'حساب مش موظف مابيشوفش حاجة');
 select tst.fails($$select ph.post_sale('{"client_uuid":"11111111-0000-0000-0000-000000000099","lines":[{"item_id":1259,"units":1}]}')$$,
                      'مش مسموح', 'ومايبيعش');
+
+-- ---------------------------------------------------------------- البوت (يوزر من نوع bot)
+reset role;
+insert into ph.staff (user_id, branch_id, name, role) values ('00000000-0000-0000-0000-0000000000e1', 1, 'بوت النواقص', 'bot');
+set role authenticated;
+select tst.as_user('00000000-0000-0000-0000-0000000000e1');
+select tst.eq((select count(*) > 0 from ph.v_stock), true, 'البوت شايف الرصيد');
+select tst.eq((select best_pct from ph.v_best_offer where item_id = 1259), 28.00, 'والنواقص وأحسن خصم');
+select tst.eq((select count(*) from ph.v_shortages) >= 0, true, 'النواقص بتشتغل للبوت من غير جداول البيع');
+insert into ph.supplier_offers (supplier_id, item_id, source, discount_pct, raw_text) values (10001, 1259, 'whatsapp', 30, 'بنادول 30');
+select tst.eq((select best_supplier_id || '/' || best_pct from ph.v_best_offer where item_id = 1259), '10001/30.00', 'البوت كتب عرض من الواتس واتحسب');
+insert into ph.purchase_orders (supplier_id, status, sent_at) values (10001, 'sent', now());
+select tst.eq((select count(*) from ph.purchase_orders where supplier_id = 10001), 1::bigint, 'وعلّم «اتطلب»');
+select tst.eq((select count(*) from ph.customers) + (select count(*) from ph.sales) + (select count(*) from ph.money_moves)
+              + (select count(*) from ph.purchase_invoices) + (select count(*) from ph.party_balances), 0::bigint,
+              'البوت مايشوفش عملاء ولا فواتير ولا فلوس');
+select tst.fails($$select ph.post_sale('{"client_uuid":"44444444-0000-0000-0000-000000000001","lines":[{"item_id":1259,"units":1}]}')$$,
+                 'مش مسموح', 'البوت مايبيعش');
+select tst.fails($$select ph.issue_bot_token('bot')$$, 'مش مسموح', 'البوت مايطلّعش مفاتيح');
 
 -- ---------------------------------------------------------------- الموقع (من غير تسجيل دخول)
 reset role;
