@@ -1,0 +1,18 @@
+# بوابة البرنامج على كمبيوتر الصيدلية (Caddy):
+#   /rest/v1/*  ← PostgREST (نفس عنوان Supabase، فكود البوت بـ supabase-js بيشتغل زي ما هو)
+#   الباقي      ← شاشات البرنامج (الكاشير والإدارة)
+# ASKER_BIND=127.0.0.1 (الجهاز ده بس، الافتراضي) أو 0.0.0.0 (أي جهاز في شبكة الصيدلية: http://<اسم الكمبيوتر>:8080)
+# http:// = من غير شهادات، Caddy مابيحاولش يسطّب حاجة على الويندوز
+http://:{$ASKER_PORT:8080} {
+	bind {$ASKER_BIND:127.0.0.1}
+	encode gzip
+	handle_path /rest/v1/* {
+		reverse_proxy {$ASKER_POSTGREST:127.0.0.1:3000}
+	}
+	handle {
+		root * {$ASKER_APP_DIR:C:/Asker/app}
+		# المتصفح يتأكد من الشاشات كل مرة (304 لو ماتغيرتش): بعد أي تحديث الشاشات الجديدة بتظهر على طول من غير Ctrl+F5
+		header Cache-Control "no-cache"
+		file_server
+	}
+}

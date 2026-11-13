@@ -1,0 +1,112 @@
+﻿# إعدادات مشتركة لسكريبتات التجربة على اللاب. كل حاجة في فولدر واحد ($Root)، ومسحه = البرنامج اتشال.
+# بورتات لوحدها، فمش بيلمس فارمافلاي ولا SQL Server بتاع الهَب ولا أي PostgreSQL تاني.
+$ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
+try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}   # العربي يبان صح، وget.ps1 بيقراه صح
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$env:PGCLIENTENCODING = "UTF8"          # ملفات القاعدة عربي UTF-8
+$env:PGOPTIONS = "-c client_min_messages=warning"
+$Pharmacy = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path   # فولدر pharmacy-system
+$PgBin    = Join-Path $Root "bin\pg\pgsql\bin"
+$PgData   = Join-Path $Root "pgdata"
+$Secrets  = Join-Path $Root "secrets"
+$Conf     = Join-Path $Root "conf"
+$Logs     = Join-Path $Root "logs"
+
+function Say([string]$m) { Write-Host "== $m" -ForegroundColor Cyan }
+
+function New-Secret([int]$n) {
+  $chars = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  $bytes = New-Object byte[] $n
+  (New-Object System.Security.Cryptography.RNGCryptoServiceProvider).GetBytes($bytes)
+  -join ($bytes | ForEach-Object { $chars[$_ % $chars.Length] })
+}
+
+# ملف UTF-8 من غير BOM (psql مابيحبش الـ BOM)
+function Write-Utf8([string]$path, [string]$text) {
+  [IO.File]::WriteAllText($path, $text, (New-Object Text.UTF8Encoding $false))
+}
+
+function Invoke-Psql([string]$db, [string]$file) {
+  & (Join-Path $PgBin "psql.exe") -h 127.0.0.1 -p $PgPort -U postgres -d $db -v ON_ERROR_STOP=1 -q -X -f $file
+  if ($LASTEXITCODE -ne 0) { throw "psql وقف في $file" }
+}
+
+# القاعدة شغالة؟ بنسأل القاعدة نفسها على البورت (pg_isready) الأول، وبعدين pg_ctl.
+# (على ويندوز pg_ctl status ممكن يقول «واقفة» وهي شغالة لو اتشغّلت من نافذة أو صلاحية تانية،
+#  وساعتها start بيلاقي ملف السجل مقفول ويوقف. ده اللي وقّف التحديث يوم 13 نوفمبر.)
+function Test-Postgres {
+  $old = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+  & (Join-Path $PgBin "pg_isready.exe") -h 127.0.0.1 -p $PgPort -t 3 *> $null
+  $ok = ($LASTEXITCODE -eq 0)
+  if (-not $ok) {
+    & (Join-Path $PgBin "pg_ctl.exe") -D $PgData status *> $null
+    $ok = ($LASTEXITCODE -eq 0)
+  }
+  $ErrorActionPreference = $old
+  return $ok
+}
+
+function Start-Postgres {
+  if (-not (Test-Postgres)) {
+    # لو ملف السجل مقفول (نسخة تانية لسه ماسكاه) نكتب في ملف جديد بدل ما نوقف
+    $log = Join-Path $Logs "postgres.log"
+    try { $s = [IO.File]::Open($log, 'OpenOrCreate', 'ReadWrite', 'ReadWrite'); $s.Close() }
+    catch { $log = Join-Path $Logs ("postgres-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".log") }
+    & (Join-Path $PgBin "pg_ctl.exe") -D $PgData -l $log -o "-p $PgPort -c listen_addresses=127.0.0.1" -w start
+    if ($LASTEXITCODE -ne 0) {
+      # آخر محاولة: يمكن قامت من مكان تاني في نفس اللحظة
+      Start-Sleep -Seconds 3
+      if (-not (Test-Postgres)) { throw "PostgreSQL ماقامش: شوف $log" }
+    }
+  }
+  $env:PGPASSWORD = (Get-Content (Join-Path $Secrets "postgres.txt") -Raw).Trim()
+}
+
+# تعديلات القاعدة (db\migrations): اللي لسه ماتطبقش بس، كل ملف في عملية واحدة، ومتسجل في ph.schema_migrations.
+# بيوقف لو ملف اتطبق قبل كده واتعدّل بعدها. نفس قواعد tools/migrate.sh.
+function Invoke-Migrations([string]$db) {
+  $psql = Join-Path $PgBin "psql.exe"
+  $n = 0
+  foreach ($f in (Get-ChildItem (Join-Path $Pharmacy "db\migrations") -Filter "*.sql" -ErrorAction SilentlyContinue | Sort-Object Name)) {
+    $v = $f.BaseName
+    $sum = (Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower()
+    $old = "$(& $psql -h 127.0.0.1 -p $PgPort -U postgres -d $db -tAX -c "select coalesce(checksum, '') from ph.schema_migrations where version = '$v'")".Trim()
+    if ($old) {
+      if ($old -ne $sum) { throw "وقفت: $v اتطبق قبل كده والملف اتعدّل بعدها. اعمل ملف جديد بدل ما تعدّله" }
+      continue
+    }
+    & $psql -h 127.0.0.1 -p $PgPort -U postgres -d $db -v ON_ERROR_STOP=1 -q -X -1 -f $f.FullName `
+      -c "insert into ph.schema_migrations (version, checksum) values ('$v', '$sum')"
+    if ($LASTEXITCODE -ne 0) { throw "فشل $v (مااتطبقش منه حاجة). لو محتاج ترجع: rollback-trial.ps1" }
+    Say "اتطبق: $v"; $n++
+  }
+  & $psql -h 127.0.0.1 -p $PgPort -U postgres -d $db -q -X -c "notify pgrst, 'reload schema'"
+  Say "تعديلات جديدة في القاعدة: $n"
+}
+
+# Edge أو Chrome (البرنامج بيتفتح فيهم كتطبيق في نافذة لوحده). Edge موجود على أي ويندوز 10/11
+function Find-Browser {
+  $cands = @()
+  foreach ($base in @(${env:ProgramFiles(x86)}, $env:ProgramFiles) | Where-Object { $_ }) {
+    $cands += (Join-Path $base "Microsoft\Edge\Application\msedge.exe")
+  }
+  foreach ($base in @($env:ProgramFiles, ${env:ProgramFiles(x86)}, $env:LOCALAPPDATA) | Where-Object { $_ }) {
+    $cands += (Join-Path $base "Google\Chrome\Application\chrome.exe")
+  }
+  foreach ($k in @("msedge.exe", "chrome.exe")) {
+    $reg = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\$k" -ErrorAction SilentlyContinue
+    if ($reg -and $reg."(default)") { $cands += $reg."(default)" }
+  }
+  foreach ($c in $cands) { if ($c -and (Test-Path $c)) { return $c } }
+  return $null
+}
+
+# مكان البرنامج جوه bin: بعض الـ zip بيحط الملف في فولدر داخلي (PostgREST للويندوز: artifacts\postgrest-windows-x64\postgrest.exe)
+function Get-Exe([string]$sub, [string]$name) {
+  $p = Join-Path $Root "bin\$sub\$name"
+  if (Test-Path $p) { return $p }
+  $f = Get-ChildItem (Join-Path $Root "bin\$sub") -Recurse -Filter $name -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($f) { return $f.FullName }
+  throw "مالقيتش $name في $Root\bin\$sub (شغّل التسطيب تاني)"
+}
