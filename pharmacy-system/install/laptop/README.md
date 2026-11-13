@@ -7,6 +7,13 @@
 - **على اللاب بس** افتراضيًا. `-Lan` لو عايز تفتحه من جهاز تاني.
 - **لم يُختبر على ويندوز لسه.** نفس المكونات اتجربت على Linux (`tests/check-api.sh`).
 
+## أسرع طريقة: أمر واحد
+افتح **PowerShell** والزق ده (بيجيب البرنامج، ويسطّبه بالبيانات التجريبية أول مرة أو يحدّثه بعد كده، ويفتحه):
+```powershell
+[Net.ServicePointManager]::SecurityProtocol='Tls12'; iwr -useb https://raw.githubusercontent.com/taherasker2560-dot/asker-contacts-tool/ccr-7fcc0f51-5mtsr9/pharmacy-system/install/laptop/get.ps1 -OutFile $env:TEMP\asker-get.ps1; powershell -ExecutionPolicy Bypass -File $env:TEMP\asker-get.ps1
+```
+الكود في `D:\asker-contacts-tool` والبرنامج وداتاه في `D:\AskerTrial`. مش محتاج git (لو مش موجود بيجيب zip). `-NoDemo` في الآخر = من غير بيانات تجريبية.
+
 ## الخطوات
 | | | |
 |---|---|---|

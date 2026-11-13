@@ -8,7 +8,8 @@ param(
   [string]$Root = "D:\AskerTrial",
   [int]$PgPort = 5433,
   [string]$BackupDir = "D:\AskerBackups",
-  [string]$Branch = "ccr-7fcc0f51-5mtsr9"
+  [string]$Branch = "ccr-7fcc0f51-5mtsr9",
+  [switch]$NoPull      # الكود اتجاب من غير git (get.ps1 بالـ zip)
 )
 . (Join-Path $PSScriptRoot "common.ps1")
 Start-Postgres
@@ -18,13 +19,17 @@ Say "نسخة احتياطية قبل التحديث"
 & (Join-Path $Pharmacy "install\backup.ps1") -Dir $BackupDir -PgBin $PgBin -Port $PgPort -PasswordFile (Join-Path $Secrets "postgres.txt")
 if ($LASTEXITCODE -ne 0) { throw "النسخة الاحتياطية فشلت: مش هحدّث" }
 
-$before = "$(git -C $repo rev-parse --short HEAD)".Trim()
-git -C $repo pull --ff-only origin $Branch
-if ($LASTEXITCODE -ne 0) { throw "git pull فشل (فيه تعديل على اللاب مااترفعش؟)" }
-$after = "$(git -C $repo rev-parse --short HEAD)".Trim()
-if ($before -eq $after) { Say "مفيش كود جديد" } else { Say "اللي اتغير ($before ← $after):"; git -C $repo log --oneline "$before..$after" }
+if ($NoPull -or -not (Test-Path (Join-Path $repo ".git"))) {
+  $before = ""; Say "الكود اتجاب من غير git: مفيش سحب"
+} else {
+  $before = "$(git -C $repo rev-parse --short HEAD)".Trim()
+  git -C $repo pull --ff-only origin $Branch
+  if ($LASTEXITCODE -ne 0) { throw "git pull فشل (فيه تعديل على اللاب مااترفعش؟)" }
+  $after = "$(git -C $repo rev-parse --short HEAD)".Trim()
+  if ($before -eq $after) { Say "مفيش كود جديد" } else { Say "اللي اتغير ($before ← $after):"; git -C $repo log --oneline "$before..$after" }
+}
 
 Invoke-Migrations "asker"
-Say "لو التحديث ده ماعجبكش: rollback-trial.ps1 -Commit $before"
+if ($before) { Say "لو التحديث ده ماعجبكش: rollback-trial.ps1 -Commit $before" } else { Say "لو التحديث ده ماعجبكش: rollback-trial.ps1 (بيرجّع آخر نسخة احتياطية للقاعدة)" }
 & (Join-Path $PSScriptRoot "check-trial.ps1") -Root $Root -PgPort $PgPort -BackupDir $BackupDir
 & (Join-Path $PSScriptRoot "desktop-icon.ps1") -Root $Root   # الأيقونة (لو اتمسحت أو أول مرة)
