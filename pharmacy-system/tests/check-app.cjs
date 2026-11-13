@@ -1,10 +1,10 @@
-// بيفتح هيكل الواجهة (app/index.html) في Chromium على مقاس موبايل ويدوس على كل حاجة، نهاري وليلي.
+// بيفتح خريطة البرنامج (app/map.html) في Chromium على مقاس موبايل ويدوس على كل حاجة، نهاري وليلي.
 // الاستخدام: node pharmacy-system/tests/check-app.cjs [فولدر للصور]
 'use strict';
 const path = require('path');
 const { chromium } = require('playwright');
 
-const FILE = 'file://' + path.resolve(__dirname, '../app/index.html');
+const FILE = 'file://' + path.resolve(__dirname, '../app/map.html');
 const shotsDir = process.argv[2];
 let failed = 0;
 const ok = (cond, msg) => { if (cond) console.log('OK  ', msg); else { failed++; console.log('FAIL', msg); } };

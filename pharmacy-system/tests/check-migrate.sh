@@ -25,7 +25,10 @@ EOF
 
 out=$(bash tools/migrate.sh "$URL" "$M" 2>&1 || true)
 check "$(echo "$out" | grep -c 'اتطبق: 202611140001_item_shelf')|$(echo "$out" | grep -c 'فشل: 202611140002_broken')" "1|1" "التعديل السليم اتطبق، واللي فيه غلط وقف"
-check "$(q "select string_agg(version, ',' order by version) from ph.schema_migrations")" "202611140001_item_shelf,base" "اللي فيه غلط مااتسجلش"
+# المتوقع: تعديلات المشروع الحقيقية (اتطبقت مع التسطيب الجديد) + السليم بتاع الاختبار + base، من غير اللي فيه غلط
+REAL=$(ls db/migrations/*.sql 2>/dev/null | xargs -rn1 basename | sed 's/\.sql$//')
+WANT=$(printf '%s\n' $REAL 202611140001_item_shelf base | LC_ALL=C sort | paste -sd, -)
+check "$(q "select string_agg(version, ',' order by version collate \"C\") from ph.schema_migrations")" "$WANT" "اللي فيه غلط مااتسجلش"
 check "$(q "select count(*) from information_schema.columns where table_schema = 'ph' and table_name = 'items' and column_name in ('shelf', 'half_done')")" "1" "ومفيش منه حاجة اتطبقت نص نص (العمود half_done مااتعملش)"
 check "$(q "select shelf from ph.items where id = 1259")" "A1" "التعديل السليم شغال على الداتا الموجودة"
 
