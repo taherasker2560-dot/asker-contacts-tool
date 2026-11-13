@@ -12,7 +12,7 @@ param(
 . (Join-Path $PSScriptRoot "common.ps1")
 Start-Postgres
 if (-not (Get-Process postgrest -ErrorAction SilentlyContinue)) {
-  Start-Process -FilePath (Join-Path $Root "bin\postgrest\postgrest.exe") -ArgumentList "`"$Conf\postgrest.conf`"" -WindowStyle Hidden `
+  Start-Process -FilePath (Get-Exe "postgrest" "postgrest.exe") -ArgumentList "`"$Conf\postgrest.conf`"" -WindowStyle Hidden `
     -RedirectStandardOutput (Join-Path $Logs "postgrest.log") -RedirectStandardError (Join-Path $Logs "postgrest.err")
 }
 $env:ASKER_PORT = "$WebPort"
@@ -20,7 +20,7 @@ $env:ASKER_BIND = $(if ($Lan) { "0.0.0.0" } else { "127.0.0.1" })
 $env:ASKER_POSTGREST = "127.0.0.1:$ApiPort"
 $env:ASKER_APP_DIR = (Join-Path $Pharmacy "app")
 if (-not (Get-Process caddy -ErrorAction SilentlyContinue)) {
-  Start-Process -FilePath (Join-Path $Root "bin\caddy\caddy.exe") `
+  Start-Process -FilePath (Get-Exe "caddy" "caddy.exe") `
     -ArgumentList "run --config `"$Pharmacy\install\Caddyfile`" --adapter caddyfile" -WindowStyle Hidden `
     -RedirectStandardOutput (Join-Path $Logs "caddy.log") -RedirectStandardError (Join-Path $Logs "caddy.err")
 }

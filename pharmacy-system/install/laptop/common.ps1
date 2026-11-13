@@ -85,3 +85,12 @@ function Find-Browser {
   foreach ($c in $cands) { if ($c -and (Test-Path $c)) { return $c } }
   return $null
 }
+
+# مكان البرنامج جوه bin: بعض الـ zip بيحط الملف في فولدر داخلي (PostgREST للويندوز: artifacts\postgrest-windows-x64\postgrest.exe)
+function Get-Exe([string]$sub, [string]$name) {
+  $p = Join-Path $Root "bin\$sub\$name"
+  if (Test-Path $p) { return $p }
+  $f = Get-ChildItem (Join-Path $Root "bin\$sub") -Recurse -Filter $name -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($f) { return $f.FullName }
+  throw "مالقيتش $name في $Root\bin\$sub (شغّل التسطيب تاني)"
+}
