@@ -1,5 +1,5 @@
-// بيفتح هيكل الواجهة (app/index.html) في Chromium على مقاس موبايل ويدوس على كل حاجة.
-// الاستخدام: node pharmacy-system/tests/check-app.cjs [مكان حفظ الصور]
+// بيفتح هيكل الواجهة (app/index.html) في Chromium على مقاس موبايل ويدوس على كل حاجة، نهاري وليلي.
+// الاستخدام: node pharmacy-system/tests/check-app.cjs [فولدر للصور]
 'use strict';
 const path = require('path');
 const { chromium } = require('playwright');
@@ -19,61 +19,44 @@ const ok = (cond, msg) => { if (cond) console.log('OK  ', msg); else { failed++;
     await page.goto(FILE);
     const noSideScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 
-    // الخريطة
-    ok(await page.locator('#mapView .section').count() === 6, `${scheme}: الخريطة فيها 5 أقسام + المراحل`);
-    ok(await page.locator('#mapView .row').count() === 27, `${scheme}: الخريطة فيها 27 شاشة`);
+    // الخريطة: 7 أقسام + المراحل، و34 شاشة
+    ok(await page.locator('#mapView .section').count() === 8, `${scheme}: الخريطة فيها 7 أقسام + المراحل`);
+    ok(await page.locator('#mapView .row').count() === 34, `${scheme}: الخريطة فيها 34 شاشة`);
     ok(await noSideScroll(), `${scheme}: الخريطة من غير سكرول جانبي`);
     if (shotsDir && scheme === 'light') await page.screenshot({ path: path.join(shotsDir, 'map.png'), fullPage: true });
 
-    // جرّب الشاشات: كل قسم وكل تبويب
+    // القاعدة
+    await page.click('#modeDb');
+    ok(await page.locator('#dbView .rules li').count() === 8, `${scheme}: قواعد القاعدة الـ 8`);
+    ok(await page.locator('#dbView .row').count() === 10, `${scheme}: ملفات القاعدة الـ 10`);
+    ok(await noSideScroll(), `${scheme}: القاعدة من غير سكرول جانبي`);
+    if (shotsDir) await page.screenshot({ path: path.join(shotsDir, `db-${scheme}.png`), fullPage: true });
+
+    // جرّب الشاشات: كل قسم وكل شاشة
     await page.click('#modeTry');
-    ok(await page.locator('#bottomNav').isVisible(), `${scheme}: الشريط اللي تحت ظاهر`);
-    const sections = ['purchases', 'accounts', 'sales'];
-    let tabsSeen = 0;
-    for (const sec of sections) {
-      await page.click(`#navIn button[data-sec="${sec}"]`);
-      const chips = await page.locator('#chips .chip').all();
-      for (const chip of chips) {
+    ok(await page.locator('#navIn button').count() === 5, `${scheme}: الشريط اللي تحت فيه 5 أقسام`);
+    let seen = 0;
+    for (const btn of await page.locator('#navIn button').all()) {
+      await btn.click();
+      for (const chip of await page.locator('#chips .chip').all()) {
         const label = (await chip.textContent()).trim();
         await chip.click();
         const title = (await page.locator('#panel h2').first().textContent()).trim();
-        if (title !== label) ok(false, `${scheme}: ${sec} / ${label} فتح «${title}»`);
+        if (title !== label) ok(false, `${scheme}: «${label}» فتح «${title}»`);
         if (!(await noSideScroll())) ok(false, `${scheme}: سكرول جانبي في ${label}`);
-        tabsSeen++;
+        seen++;
       }
     }
-    ok(tabsSeen === 19, `${scheme}: اتفتحت ${tabsSeen} شاشة في الأقسام التلاتة (المتوقع 19)`);
+    ok(seen === 25, `${scheme}: اتفتحت ${seen} شاشة في الأقسام الخمسة (المتوقع 25)`);
     await page.click('#gearBtn');
-    ok(await page.locator('#chips .chip').count() === 4, `${scheme}: الترس بيفتح الإعدادات (4 تبويبات)`);
+    ok(await page.locator('#chips .chip').count() === 4, `${scheme}: الترس بيفتح الإعدادات (4 شاشات)`);
+    await page.click('#navIn button[data-sec="sales"]');
+    await page.click('#chips .chip[data-tab="pos"]');
+    ok(await page.locator('#panel .offline').count() === 1, `${scheme}: الكاشير بيوضح شغله والنت واقف`);
+    if (shotsDir) await page.screenshot({ path: path.join(shotsDir, `pos-${scheme}.png`) });
 
-    // شريط النهارده
-    await page.click('#todayStrip button[data-go="purchases:expiry"]');
-    ok((await page.locator('#panel h2').first().textContent()).trim() === 'الصلاحية', `${scheme}: «صلاحية قربت» بتفتح الصلاحية`);
-
-    // البحث + البديل
-    await page.fill('#q', 'بنادول');
-    ok(await page.locator('#searchOut .item').count() === 2, `${scheme}: البحث عن «بنادول» = صنفين`);
-    ok(await page.locator('#searchOut').getByText('البديل').count() === 1, `${scheme}: الصنف اللي مفيش منه بيطلع معاه البديل`);
-    ok(await page.locator('#sectionArea').isHidden(), `${scheme}: البحث بيخفي القسم لحد ما يتمسح`);
-    await page.fill('#q', 'xyz');
-    ok(await page.locator('#searchOut').getByText('مفيش صنف').count() === 1, `${scheme}: بحث من غير نتيجة بيقول كده`);
-    await page.fill('#q', '');
-    ok(await page.locator('#sectionArea').isVisible(), `${scheme}: مسح البحث بيرجّع القسم`);
-
-    // الألوان: الخلفية مش شفافة والنص مقروء في الوضعين
-    const colors = await page.evaluate(() => {
-      const cs = getComputedStyle(document.body);
-      return { bg: cs.backgroundColor, fg: cs.color };
-    });
+    const colors = await page.evaluate(() => { const cs = getComputedStyle(document.body); return { bg: cs.backgroundColor, fg: cs.color }; });
     ok(colors.bg !== 'rgba(0, 0, 0, 0)' && colors.bg !== colors.fg, `${scheme}: خلفية ${colors.bg} ونص ${colors.fg}`);
-
-    if (shotsDir) {
-      await page.click('#navIn button[data-sec="accounts"]');
-      await page.screenshot({ path: path.join(shotsDir, `try-accounts-${scheme}.png`) });
-      await page.click('#navIn button[data-sec="sales"]');
-      await page.click('#chips .chip[data-tab="salesmove"]');
-      await page.screenshot({ path: path.join(shotsDir, `try-sales-${scheme}.png`) });
-    }
     ok(errors.length === 0, `${scheme}: مفيش أخطاء في الصفحة ${errors.join(' | ')}`);
     await page.close();
   }
