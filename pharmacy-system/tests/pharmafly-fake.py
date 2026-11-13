@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """نسخة فارمافلاي متولّدة (مش داتا الصيدلية) بنفس جداول وأعمدة pf_raw وبنفس القواعد اللي اتأكدت من النسخة الحقيقية
 (MAPPING.md): SalesReturn 1/2، السطر = SalesPrice × (Packs + Units ÷ iParts)، تذاكر الصفر تحصيل بصنف 1، الخصم
-بيتطرح من اللي العميل دفعه، CashFlow 9 دفع لمورد و 2 نسخة تانية من التحصيل، التليفون جوه الاسم، Items.barcode متكرر،
-والرصيد النهارده في Work و Cards.Credit. الأرصدة الصح بتتحسب هنا، فالنقل لازم يطابقها بالظبط.
+بيتطرح من اللي العميل دفعه، CashFlow 9 دفع لمورد و 2 نسخة تانية من التحصيل و 4 تحصيل من غير تذكرة، الجرد في ItemCards
+(5 و 6)، التليفون جوه الاسم، Items.barcode متكرر، والرصيد النهارده في Work و NewBalance (آخر تذكرة أو CashFlow 4). الأرصدة الصح بتتحسب هنا، فالنقل لازم يطابقها بالظبط.
 
 الاستخدام:  python3 tests/pharmafly-fake.py [عدد الأيام] > fake.sql   ثم  psql <القاعدة> -f fake.sql
 """
@@ -49,16 +49,16 @@ rows('Categories', ['id', 'name', 'IsActive'], [(1, 'ادوية', True), (2, 'م
 
 # الأصناف: 1 = «أصناف متنوعة». Items.barcode = 999 متكرر على أغلبهم (زي الحقيقي)، وكام واحد ليه باركود لوحده
 items = {1: dict(parts=1, price=0.0, cost=0.0)}
-irows = [(1, 'أصناف متنوعة', None, 1, 0.0, 0.0, 999, 3, True, False, False)]
+irows = [(1, 'أصناف متنوعة', None, 1, 0.0, 0.0, 999, 3, True, False, False, False)]
 for i in range(2, 202):
     parts = R.choice([1, 1, 2, 3, 10])
     price = float(R.randint(15, 300))
     items[i] = dict(parts=parts, price=price, cost=round(price * 0.75, 2))
     irows.append((i, f'ITEM {i} TAB', 'دواء ' + str(i) if i % 10 == 0 else None, parts, price, round(price * 0.75, 2),
-                  (5000 + i) if i % 25 == 0 else 999, 1 + i % 3, True, False, i % 50 == 0))
+                  (5000 + i) if i % 25 == 0 else 999, 1 + i % 3, True, False, i % 50 == 0, False))
 table('Items', [('ID', B), ('name', X), ('DESCRIPTION', X), ('Parts', B), ('SalesPrice', F), ('CostPrice', F), ('barcode', B),
-                ('form_id', B), ('IsActive', BO), ('Archived', BO), ('FridgeItem', BO)])
-rows('Items', ['ID', 'name', 'DESCRIPTION', 'Parts', 'SalesPrice', 'CostPrice', 'barcode', 'form_id', 'IsActive', 'Archived', 'FridgeItem'], irows)
+                ('form_id', B), ('IsActive', BO), ('Archived', BO), ('FridgeItem', BO), ('FreezedItem', BO)])
+rows('Items', ['ID', 'name', 'DESCRIPTION', 'Parts', 'SalesPrice', 'CostPrice', 'barcode', 'form_id', 'IsActive', 'Archived', 'FridgeItem', 'FreezedItem'], irows)
 table('CrossRefrences', [('Id', B), ('itemID', B), ('ref', X), ('IsActive', BO)])
 rows('CrossRefrences', ['Id', 'itemID', 'ref', 'IsActive'], [(i, i, f'622{i:010d}', True) for i in range(2, 202, 3)])
 
@@ -68,20 +68,21 @@ for c in range(1, 46):
     vendor = c <= 5
     name = f'مورد {c}' if vendor else (f'عميل {c} 010{c:08d}' if c % 3 == 0 else f'عميل {c}')
     cards.append([c, name, vendor, not vendor, 2000.0 if not vendor and c % 2 else 0.0, dt.datetime(2020, 1, 1)])
-table('Cards', [('Id', B), ('Name', X), ('IsVendor', BO), ('IsCreditCustomer', BO), ('CreditLimit', F), ('JoiningDate', T), ('Credit', F)])
+table('Cards', [('Id', B), ('Name', X), ('IsVendor', BO), ('IsCreditCustomer', BO), ('CreditLimit', F), ('JoiningDate', T), ('Credit', F),
+                ('District', X), ('AddressDetails', X)])
 table('Telephones', [('ID', B), ('CustomerID', B), ('Tel', X)])
 rows('Telephones', ['ID', 'CustomerID', 'Tel'], [(1, 7, '01122334455')])
 bal = {c: 0.0 for c in range(1, 46)}   # موجب = العميل عليه / إحنا علينا للمورد
 
 stock = {}   # (item, expiry) -> units في المخزن 1
-pinv, pitems, tix, lines, cash = [], [], [], [], []
+pinv, pitems, tix, lines, cash, icards = [], [], [], [], [], []
 pid = pl = tid = lid = cid = 0
 
 
-def add_cash(op, amount, dealer, when, acc=1):
+def add_cash(op, amount, dealer, when, acc=1, nb=0.0):
     global cid
     cid += 1
-    cash.append((cid, acc, amount, dealer, 0.0, op, when))
+    cash.append((cid, acc, amount, dealer, nb, op, when))
 
 
 for d in range(DAYS):
@@ -158,7 +159,7 @@ for d in range(DAYS):
             bal[cust] += net - paid
         else:
             paid = net
-        tix.append((tid, when, cust, 1, total, disc, paid, 1, 0.0))
+        tix.append((tid, when, cust, 1, total, disc, paid, 1, round(bal[cust], 2) if cust else 0.0))
         for r in mylines:
             lines.append((r[0], r[1], r[2], r[3], r[4], r[5], r[6], dt.datetime.combine(r[7], dt.time()), 1.0))
         add_cash(1, paid if not cust else 0.0, 0, when)
@@ -174,9 +175,9 @@ for d in range(DAYS):
         exp = last[7].date()
         stock[(last[2], exp)] = stock.get((last[2], exp), 0) + last[6]
         refund = 0.0 if cust else -val   # العميل اللي ليه حساب: المرتجع على حسابه، والكاش: رجع فلوس
-        tix.append((tid, day + dt.timedelta(hours=20), cust, 2, -val, 0.0, refund, 1, 0.0))
         if cust:
             bal[cust] -= val
+        tix.append((tid, day + dt.timedelta(hours=20), cust, 2, -val, 0.0, refund, 1, round(bal[cust], 2) if cust else 0.0))
     # تحصيل: تذكرة صفر بصنف 1 + نفس المبلغ في CashFlow 2 (متسجل مرتين: النقل ياخد التذكرة بس)
     if d % 3 == 0:
         debtors = [c for c in range(6, 46) if bal[c] > 30]
@@ -186,17 +187,26 @@ for d in range(DAYS):
             tid += 1
             lid += 1
             when = day + dt.timedelta(hours=21)
-            tix.append((tid, when, c, 1, 0.0, 0.0, amt, 1, 0.0))
+            bal[c] -= amt
+            tix.append((tid, when, c, 1, 0.0, 0.0, amt, 1, round(bal[c], 2)))
             lines.append((lid, tid, 1, 1, 0, 0.0, 1, None, 0.0))
             add_cash(2, amt, c, when)
-            bal[c] -= amt
+    # الجرد (كارت الصنف): كل 20 يوم عجز وحدة (عملية 5)، وكل 30 يوم زيادة وحدة (عملية 6)، والرصيد بيتغير
+    if d % 20 == 7 or d % 30 == 11:
+        keys = [k for k, u in stock.items() if u >= 2]
+        if keys:
+            it, exp = R.choice(keys)
+            delta = -1 if d % 20 == 7 else 1
+            stock[(it, exp)] += delta
+            icards.append((len(icards) + 1, it, 5 if delta < 0 else 6, 0, delta, day + dt.timedelta(hours=23), 1,
+                           dt.datetime.combine(exp, dt.time())))
     # تحصيل من غير تذكرة (CashFlow 4، زي قبل 2021)
     if d % 10 == 5:
         debtors = [c for c in range(6, 46) if bal[c] > 20]
         if debtors:
             c = R.choice(debtors)
-            add_cash(4, 20.0, c, day + dt.timedelta(hours=22))
             bal[c] -= 20.0
+            add_cash(4, 20.0, c, day + dt.timedelta(hours=22), nb=round(bal[c], 2))
 
 # التذاكر اللي تاريخها 1980 (زي الحقيقي): بتتساب
 tid += 1
@@ -229,8 +239,12 @@ for (it, exp), u in sorted(stock.items()):
 table('Work', [('ID', B), ('item_id', B), ('StoreID', B), ('Packs', B), ('Units', B), ('exp_date', T)])
 rows('Work', ['ID', 'item_id', 'StoreID', 'Packs', 'Units', 'exp_date'], work)
 table('Transfers', [('ID', B), ('FromId', B), ('ToId', B), ('zDate', T)])
+table('ItemCards', [('ID', B), ('ItemID', B), ('Operation', B), ('Packs', B), ('Units', B), ('ztime', T), ('StoreID', B), ('ExpiryDate', T)])
+rows('ItemCards', ['ID', 'ItemID', 'Operation', 'Packs', 'Units', 'ztime', 'StoreID', 'ExpiryDate'], icards)
 for c in cards:
     c.append(round(bal[c[0]], 2))
-rows('Cards', ['Id', 'Name', 'IsVendor', 'IsCreditCustomer', 'CreditLimit', 'JoiningDate', 'Credit'], cards)
+for c in cards:
+    c += [None, None]
+rows('Cards', ['Id', 'Name', 'IsVendor', 'IsCreditCustomer', 'CreditLimit', 'JoiningDate', 'Credit', 'District', 'AddressDetails'], cards)
 print('\n'.join(out))
 print(f"-- متولّد: {len(tix)} تذكرة، {len(lines)} سطر بيع، {len(pinv)} فاتورة شرا، {len(cash)} حركة خزنة، {len(work)} صف رصيد")
