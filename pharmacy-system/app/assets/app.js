@@ -46,7 +46,7 @@ function showLogin(msg = '') {
   document.title = 'صيدلية عسكر — الدخول';
   render(root, h`<div class="login">
     <section class="art"><div class="inner">
-      <div class="seal">ع</div>
+      <img class="logo logo-lg" src="assets/logo-256.webp" width="168" height="168" alt="لوجو صيدلية عسكر">
       <h1>صيدلية عسكر</h1>
       <p>البيع والمخزن والحسابات… في مكان واحد</p>
       <span class="since">من ١٩٨١</span>
@@ -100,7 +100,7 @@ function renderShell() {
   const mobile = ROUTES.filter((r) => can(r.roles)).slice(0, 4);
   render(root, h`<div class="shell">
     <aside class="side" aria-label="القائمة">
-      <div class="brand"><div class="seal">ع</div><div><b>${(state.settings && state.settings.pharmacy_name) || 'صيدلية عسكر'}</b><small>برنامج الصيدلية</small></div></div>
+      <div class="brand"><img class="logo" src="assets/logo-96.png" width="48" height="48" alt="لوجو صيدلية عسكر"><div><b>${(state.settings && state.settings.pharmacy_name) || 'صيدلية عسكر'}</b><small>برنامج الصيدلية</small></div></div>
       <nav class="nav">${navLinks()}</nav>
       <div class="side-foot">
         <div class="me"><div class="avatar">${initials(u.name)}</div><div><b>${u.name}</b><small>${ROLE_AR[u.role] || u.role}</small></div></div>

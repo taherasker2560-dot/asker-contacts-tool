@@ -342,3 +342,7 @@ tr.kb-sel td { background: color-mix(in srgb, var(--gold-100) 55%, transparent) 
 @media (max-width: 860px) { .kb-help, .nav-k { display: none !important; } }
 /* الموبايل: صفوف القوايم بتنزل سطر لو الزراير كتير (مفيش سكرول جانبي) */
 @media (max-width: 640px) { .li { flex-wrap: wrap; row-gap: 6px; } .li .grow { flex: 1 1 55%; } }
+
+/* لوجو الصيدلية (نفس لوجو البوت والمتجر) */
+.logo { width: 48px; height: 48px; border-radius: 50%; flex: none; display: block; box-shadow: 0 2px 10px rgba(0,0,0,.35); }
+.logo-lg { width: 168px; height: 168px; margin: 0 auto 20px; box-shadow: 0 10px 40px rgba(0,0,0,.45); }
