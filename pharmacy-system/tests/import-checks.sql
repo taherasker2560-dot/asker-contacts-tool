@@ -86,3 +86,4 @@ select tst.fails($$select ph.import_history()$$, 'permission denied', 'النق�
 reset role;
 select tst.fails($$update ph.sales set total = 1 where legacy_no = '1006'$$, 'اترحّل', 'فواتير فارمافلاي المنقولة مابتتعدلش');
 select tst.fails($$select ph.import_history()$$, 'فيها داتا', 'النقل مايتعملش مرتين على نفس القاعدة');
+select tst.eq((select string_agg(check_name, '، ') from ph.health_check() where not ok), null, 'الفحص الذاتي سليم بعد النقل والبيع');

@@ -235,3 +235,25 @@ select tst.fails($$update ph.sales set total = 1 where id = 1$$, 'اترحّل',
 select tst.eq((select sum(qty_units) from ph.stock_moves), (select sum(qty_units) from ph.stock_balances), 'الرصيد = مجموع الدفتر');
 select tst.eq((select sum(amount) from ph.party_ledger where party_type = 'customer'),
                   (select sum(balance) from ph.party_balances where party_type = 'customer'), 'رصيد العملاء = مجموع الدفتر');
+
+-- ---------------------------------------------------------------- الفحص الذاتي وسجل المشاكل
+select set_config('request.jwt.claim.sub', '', false);   -- اتصال مباشر بالقاعدة زي سكريبت اللاب
+select tst.eq((select string_agg(check_name, '، ') from ph.health_check() where not ok), null, 'الفحص الذاتي: كل القواعد سليمة بعد يوم الشغل');
+update ph.stock_balances set qty_units = qty_units + 1 where batch_id = 1 and location_id = 1;   -- نبوّظ رصيد بإيدنا
+update ph.party_balances set balance = balance + 5 where party_type = 'customer';
+select tst.eq((select string_agg(check_name, '، ' order by check_name) from ph.health_check() where not ok),
+              'الحسابات = دفتر الحسابات، الرصيد = دفتر الحركة', 'الفحص الذاتي مسك الرصيد والحساب المتبوّظين');
+update ph.stock_balances set qty_units = qty_units - 1 where batch_id = 1 and location_id = 1;
+update ph.party_balances set balance = balance - 5 where party_type = 'customer';
+select tst.eq((select count(*) from ph.health_check() where not ok), 0::bigint, 'ورجع سليم');
+set role authenticated;
+select tst.as_user('00000000-0000-0000-0000-0000000000c1');
+select tst.fails($$select * from ph.health_check()$$, 'مش مسموح', 'الكاشير مايشغّلش الفحص');
+insert into ph.trial_notes (area, severity, note) values ('sales', 'bug', 'الشريط اتحسب بسعر العلبة');
+update ph.trial_notes set status = 'fixed' where id = 1;
+select tst.eq((select status from ph.trial_notes where id = 1), 'open', 'الكاشير سجّل مشكلة ومايقدرش يقفلها');
+select tst.as_user('00000000-0000-0000-0000-0000000000a1');
+update ph.trial_notes set status = 'fixed', fixed_note = 'اتصلح', fixed_at = now() where id = 1;
+select tst.eq((select status from ph.trial_notes where id = 1), 'fixed', 'المالك قفلها');
+select tst.eq((select count(*) from ph.health_check()), 10::bigint, 'المالك بيشغّل الفحص (10 قواعد)');
+reset role;

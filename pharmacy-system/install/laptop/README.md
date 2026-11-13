@@ -19,6 +19,17 @@
 | 7 | نقل من نسخة أحدث بعدين | `setup-trial.ps1 -ResetDb` ثم 6 تاني |
 | 8 | الإيقاف | `…\stop-trial.ps1` |
 
+## الثبات والأخطاء والمشاكل
+الخطة والشروط في [`docs/trial.md`](../../docs/trial.md).
+
+| | | |
+|---|---|---|
+| التقرير اليومي | البرامج، الفحص الذاتي، أخطاء السجلات، النسخة الاحتياطية، المساحة، المشاكل المفتوحة | `…\check-trial.ps1` |
+| اختبار الضغط | كذا كاشير في نفس الوقت على قاعدة لوحدها | `…\soak-trial.ps1 -Clients 4 -Seconds 600` |
+| النسخة الاحتياطية | كل ليلة | `pharmacy-system\install\backup.ps1 -PgBin D:\AskerTrial\bin\pg\pgsql\bin -Port 5433 -PasswordFile D:\AskerTrial\secrets\postgres.txt` |
+| النسخة بترجع؟ | آخر نسخة ← قاعدة تانية ← الفحص | `…\restore-test.ps1` |
+| مشكلة جديدة | تتسجل في `ph.trial_notes` | Claude على اللاب يسجلها |
+
 ## اللي بيتعمل في `D:\AskerTrial`
 ```
 bin\        PostgreSQL 16 و PostgREST 12.2.3 و Caddy 2.8.4 (zip من غير تسطيب)
