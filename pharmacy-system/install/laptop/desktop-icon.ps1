@@ -27,6 +27,7 @@ $icon = Join-Path $PSScriptRoot "asker.ico"
 $i = 0
 foreach ($p in $places) {
   $made = $false
+  foreach ($n in $names) { Remove-Item (Join-Path $p $n) -ErrorAction SilentlyContinue }   # أيقونة واحدة بس (من غير نسخة قديمة بالاسم التاني)
   foreach ($n in $names) {   # الاسم العربي الأول، ولو الويندوز رفضه الإنجليزي
     try {
       $lnk = $ws.CreateShortcut((Join-Path $p $n))

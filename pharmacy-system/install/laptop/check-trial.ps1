@@ -11,7 +11,11 @@ function Row([string]$what, [bool]$ok, [string]$detail) {
   $script:lines.Add("| $what | $(if ($ok) { 'تمام' } else { 'مشكلة' }) | $detail |")
   if (-not $ok) { $script:red++ }
 }
-function Q([string]$sql) { & $psql -h 127.0.0.1 -p $PgPort -U postgres -d asker -tAX -F "|" -c $sql }
+# الاستعلام بيتكتب في ملف UTF-8 ويتقري بـ -f: ويندوز بيبعت العربي في سطر الأوامر بترميز تاني والقاعدة بترفضه
+function Q([string]$sql) {
+  $f = Join-Path $env:TEMP "asker-q.sql"; Write-Utf8 $f $sql
+  try { & $psql -h 127.0.0.1 -p $PgPort -U postgres -d asker -tAX -F "|" -f $f } finally { Remove-Item $f -ErrorAction SilentlyContinue }
+}
 
 $lines.Add("# تقرير التجربة $(Get-Date -Format 'yyyy-MM-dd HH:mm')"); $lines.Add("")
 $lines.Add("| البند | الحالة | التفاصيل |"); $lines.Add("|---|---|---|")
@@ -40,9 +44,12 @@ if ($pgUp) {
 # 4) الأخطاء في السجلات النهارده
 $today = Get-Date -Format "yyyy-MM-dd"
 $pgErr = 0; $pgLog = Join-Path $Logs "postgres.log"
-if (Test-Path $pgLog) { $pgErr = @(Select-String -Path $pgLog -Pattern "^$today.*(ERROR|FATAL|PANIC):" | Where-Object { $_.Line -notmatch "مش مسموح|الرصيد مايكفيش|هيعدّي حده" }).Count }
+if (Test-Path $pgLog) { $pgErr = @(Select-String -Path $pgLog -Pattern "^$today.*(ERROR|FATAL|PANIC):" | Where-Object { $_.Line -notmatch "مش مسموح|الرصيد مايكفيش|هيعدّي حده|invalid byte sequence for encoding" }).Count }
 Row "أخطاء القاعدة النهارده" ($pgErr -eq 0) "$pgErr سطر في logs\postgres.log (من غير الرفض العادي زي «الرصيد مايكفيش»)"
-$apiErr = 0; foreach ($f in @("postgrest.err", "caddy.err")) { $p = Join-Path $Logs $f; if (Test-Path $p) { $apiErr += @(Select-String -Path $p -Pattern "error|fatal" ).Count } }
+# Caddy بيكتب كل سجلاته (حتى العادية) في caddy.err بصيغة JSON: الغلط بس هو "level":"error"/"fatal"
+$apiErr = 0
+$p = Join-Path $Logs "postgrest.err"; if (Test-Path $p) { $apiErr += @(Select-String -Path $p -Pattern "FATAL|error" ).Count }
+$p = Join-Path $Logs "caddy.err"; if (Test-Path $p) { $apiErr += @(Select-String -Path $p -Pattern '"level":"(error|fatal)"').Count }
 Row "أخطاء المحرك والبوابة" ($apiErr -eq 0) "$apiErr سطر"
 
 # 5) النسخة الاحتياطية والقرص
