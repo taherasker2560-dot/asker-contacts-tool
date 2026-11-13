@@ -31,5 +31,7 @@ if ($NoPull -or -not (Test-Path (Join-Path $repo ".git"))) {
 
 Invoke-Migrations "asker"
 if ($before) { Say "لو التحديث ده ماعجبكش: rollback-trial.ps1 -Commit $before" } else { Say "لو التحديث ده ماعجبكش: rollback-trial.ps1 (بيرجّع آخر نسخة احتياطية للقاعدة)" }
-& (Join-Path $PSScriptRoot "check-trial.ps1") -Root $Root -PgPort $PgPort -BackupDir $BackupDir
 & (Join-Path $PSScriptRoot "desktop-icon.ps1") -Root $Root   # الأيقونة (لو اتمسحت أو أول مرة)
+& (Join-Path $PSScriptRoot "start-trial.ps1") -Root $Root -PgPort $PgPort   # البرنامج يقوم (لو مش شغال) قبل الفحص
+& (Join-Path $PSScriptRoot "check-trial.ps1") -Root $Root -PgPort $PgPort -BackupDir $BackupDir
+exit 0   # الفحص بيعرض النتيجة ومابيوقفش التحديث
