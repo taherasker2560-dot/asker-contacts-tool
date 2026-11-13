@@ -41,7 +41,7 @@ export function combo(e) {
   if (e.ctrlKey || e.metaKey) parts.push('Ctrl');
   if (e.altKey) parts.push('Alt');
   if (e.shiftKey && !/^Shift/.test(e.code)) parts.push('Shift');
-  parts.push(e.code);
+  parts.push(e.code === 'NumpadEnter' ? 'Enter' : e.code);   // Enter الأرقام (اللي على اليمين) = Enter في كل البرنامج
   return parts.join('+');
 }
 export const typing = (el) => !!el && (el.isContentEditable || (el.tagName === 'INPUT' && !/^(checkbox|radio|button|submit)$/.test(el.type)) || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT');

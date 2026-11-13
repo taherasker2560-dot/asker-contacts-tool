@@ -12,7 +12,7 @@ const METHODS = [
 ];
 
 export default async function pos({ el, api, state }) {
-  let cart = [], customer = null, method = 'cash', shift = null, results = [], sel = 0, seq = 0, mult = 1, busy = false, csel = -1, cIdx = 0;
+  let cart = [], customer = null, method = 'cash', shift = null, results = [], sel = 0, seq = 0, lastQ = '', mult = 1, busy = false, csel = -1, cIdx = 0;
   const parked = () => { try { return JSON.parse(localStorage.getItem(PARK)) || []; } catch (e) { return []; } };
   const saveParked = (l) => { try { localStorage.setItem(PARK, JSON.stringify(l)); } catch (e) {} };
 
@@ -97,6 +97,7 @@ export default async function pos({ el, api, state }) {
     const m = t.match(/^(\d{1,3})\s*\*\s*(.+)$/); if (m) { mult = +m[1]; t = m[2].trim(); }
     if (t.length < 2 && !/^\d+$/.test(t)) { results = []; drawResults(); return []; }
     let r = [];
+    lastQ = text.trim();
     try { r = await api.rpc('pos_lookup', { q: t, max_rows: 10 }); } catch (e) { if (my === seq) toast(e.message, 'bad'); return []; }
     if (my !== seq) return null;
     results = r; sel = 0; drawResults(); return r;
@@ -112,6 +113,7 @@ export default async function pos({ el, api, state }) {
         <div class="stock">${on ? h`<span class="pill p-good">${qty(it.onhand_units, it.pack_parts, it.pack_name, it.unit_name)}</span>` : h`<span class="pill p-bad">ناقص</span> <button class="btn sm ghost" data-alt="${it.id}">${icon('swap')} بدايل</button>`}</div>
         <div class="price">${money(it.price_pack)}<span class="muted" style="font-size:12px;font-family:var(--f-ui)"> ج/${it.pack_name || 'علبة'}</span></div></div>`;
     })}`);
+    const on = resBox.querySelector('.res.on'); if (on) on.scrollIntoView({ block: 'nearest' });
   }
   const onType = debounce(() => lookup(q.value), 110);
   q.addEventListener('input', onType);
@@ -133,7 +135,8 @@ export default async function pos({ el, api, state }) {
       // الباركود بيتكتب بسرعة وبعده Enter على طول: ندوّر دلوقتي من غير ما نستنى
       let r = results;
       const isCode = /^(\d{1,3}\s*\*\s*)?\d{4,}$/.test(q.value.trim());
-      if (isCode || !r.length) r = await lookup(q.value) || [];
+      // الكتابة لسه ماتدوّرش عليها (Enter بسرعة بعد آخر حرف): ندوّر الأول عشان مانضيفش صنف من بحث قديم
+      if (isCode || !r.length || q.value.trim() !== lastQ) r = await lookup(q.value) || [];
       const pick = isCode ? (r.find((x) => x.exact) || (r.length === 1 ? r[0] : null)) : r[sel];
       if (pick) add(pick, mult); else { beep(false); toast('مالقيتش الصنف ده', 'bad'); }
     } else if (!q.value && cart.length && (c === 'Equal' || c === 'Shift+Equal' || c === 'NumpadAdd' || c === 'Minus' || c === 'NumpadSubtract')) {

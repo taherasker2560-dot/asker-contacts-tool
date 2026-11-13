@@ -210,7 +210,10 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
 .pos-search > svg { position: absolute; inset-inline-start: 16px; top: 50%; translate: 0 -50%; width: 24px; height: 24px; color: var(--accent-ink); }
 .results { position: absolute; inset-inline: 0; top: calc(100% + 6px); background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow-2); z-index: 15; overflow: hidden; }
 .res { display: grid; grid-template-columns: 1fr auto auto; gap: 14px; align-items: center; padding: 11px 16px; cursor: pointer; border-bottom: 1px solid var(--line-2); }
-.res:last-child { border-bottom: 0; } .res.on, .res:hover { background: var(--crimson-50); }
+.res:last-child { border-bottom: 0; } .res:hover { background: var(--crimson-50); }
+/* الصف المختار بالسهم: أزرق واضح وخط على الجنب، عشان يبان من بعيد ومايتلخبطش مع الماوس */
+.res.on, .res.on:hover { background: color-mix(in srgb, var(--c-main) 20%, var(--card)); box-shadow: inset 5px 0 0 var(--c-main); }
+[dir="rtl"] .res.on, [dir="rtl"] .res.on:hover { box-shadow: inset -5px 0 0 var(--c-main); }
 .res b { display: block; } .res .stock { font-size: 13px; text-align: end; } .res .price { font-family: var(--f-display); font-size: 18px; font-weight: 600; }
 .cart { margin-top: 14px; }
 .cart-line { display: grid; grid-template-columns: minmax(0, 1fr) auto 120px 32px; gap: 14px; align-items: center; padding: 12px 4px; border-bottom: 1px solid var(--line-2); animation: rise .2s ease both; }

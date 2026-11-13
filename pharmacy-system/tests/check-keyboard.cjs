@@ -41,6 +41,21 @@ const ok = (c, m) => { if (c) console.log('OK  ', m); else { failed++; console.l
   await type('بنادول اكسترا', 700); await press('Enter', 500);
   await type('اوجمنتين', 700); await press('Enter', 500);
   ok(await p.locator('.cart-line').count() === 3, 'باركود + اسمين بالعربي ← 3 أصناف');
+  // ↓ في نتايج البحث: الصف المختار باين بلون غير الباقي، و Enter الأرقام (Numpad) بيضيف هو بالظبط
+  await type('بنادول', 700);
+  const nRes = await p.locator('#res .res').count();
+  await press('ArrowDown');
+  const second = await p.locator('#res .res').nth(1).locator('b').textContent();
+  const bg = await p.locator('#res .res').evaluateAll((rs) => rs.map((r) => getComputedStyle(r).backgroundColor));
+  ok(nRes >= 2 && await p.locator('#res .res.on').count() === 1 && (await p.locator('#res .res').nth(1).getAttribute('class')).includes('on'), '↓ اختار الصنف التاني في البحث');
+  ok(bg[1] !== bg[0] && bg[1] !== bg[2 % nRes === 1 ? 0 : 2], 'الصنف المختار لونه مختلف وواضح (' + bg[1] + ')');
+  await press('NumpadEnter', 500);
+  ok(await p.locator('.cart-line').count() === 4 && (await p.locator('.cart-line').last().textContent()).includes(second.trim()), 'Enter الأرقام ضاف الصنف المختار (' + second.trim() + ')');
+  // Enter بسرعة بعد الكتابة (قبل ما البحث يرجع): مايضيفش صنف من بحث قديم
+  await type('زيث', 700); await K.type('رون', { delay: 5 }); await press('Enter', 700);
+  ok((await p.locator('.cart-line').last().textContent()).includes('زيثرون'), 'Enter على طول بعد الكتابة ضاف الصنف الصح (زيثرون) مش من البحث القديم');
+  for (let i = 0; i < 2; i++) { await press('ArrowUp'); await press('Delete'); await press('Escape'); }
+  ok(await p.locator('.cart-line').count() === 3, 'رجعنا 3 أصناف');
   await press('ArrowUp'); ok(await p.locator('.cart-line.kb-sel').count() === 1, '↑ اختار صنف في الفاتورة');
   await press('Equal'); ok((await p.inputValue('.cart-line.kb-sel input[data-q]')) === '2', '+ زوّد الكمية');
   await press('Delete'); ok(await p.locator('.cart-line').count() === 2, 'Del شال الصنف المختار');
