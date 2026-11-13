@@ -75,7 +75,7 @@ r=$(req GET "/customers?select=name" "$BOT"); check "$r" "200|[]" "البوت م
 # البوابة (Caddy بنفس install/Caddyfile) + كود البوت بـ supabase-js زي ما هو
 GW="http://127.0.0.1:${GW_PORT:-8088}"; GWNAME="ph-caddy-test"
 docker rm -f "$GWNAME" >/dev/null 2>&1 || true
-docker run -d --name "$GWNAME" --network host -e ASKER_LISTEN=":${GW_PORT:-8088}" -e ASKER_POSTGREST="127.0.0.1:${API_PORT:-3300}" \
+docker run -d --name "$GWNAME" --network host -e ASKER_PORT="${GW_PORT:-8088}" -e ASKER_BIND=127.0.0.1 -e ASKER_POSTGREST="127.0.0.1:${API_PORT:-3300}" \
   -e ASKER_APP_DIR=/app -v "$PWD/install/Caddyfile:/etc/caddy/Caddyfile:ro" -v "$PWD/app:/app:ro" caddy:2.8.4 >/dev/null
 for i in $(seq 1 20); do curl -s -o /dev/null "$GW/" && break; sleep 1; done
 check "$(curl -s "$GW/" | grep -c 'صيدلية عسكر' | tr -d ' ' | sed 's/^[1-9][0-9]*$/yes/')" "yes" "البوابة بتفتح شاشات البرنامج"

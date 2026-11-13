@@ -22,15 +22,16 @@ def connect(work):
         password = env.get('MSSQL_SA_PASSWORD')
     if password is None:
         sys.exit('مفيش كلمة سر: شغّل restore.sh الأول، أو اكتب MSSQL_USER و MSSQL_PASSWORD و MSSQL_DB')
-    return pymssql.connect(server=os.environ.get('MSSQL_HOST', '127.0.0.1'), port=int(os.environ.get('MSSQL_PORT', '1433')),
-                           user=os.environ.get('MSSQL_USER', 'sa'), password=password,
-                           database=os.environ.get('MSSQL_DB', 'pf'), charset='UTF-8', login_timeout=30)
+    extra = {'port': int(os.environ['MSSQL_PORT'])} if os.environ.get('MSSQL_PORT') else {}   # من غيره: 1433 أو اسم الـ instance
+    return pymssql.connect(server=os.environ.get('MSSQL_HOST', '127.0.0.1'), user=os.environ.get('MSSQL_USER', 'sa'),
+                           password=password, database=os.environ.get('MSSQL_DB', 'pf'), charset='UTF-8', login_timeout=30, **extra)
 
 
 DATE_TYPES = {'date', 'datetime', 'datetime2', 'smalldatetime', 'datetimeoffset'}
 
 
 def main():
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')   # شاشة ويندوز والعربي
     work = sys.argv[1]
     con = connect(work)
     cur = con.cursor(as_dict=True)

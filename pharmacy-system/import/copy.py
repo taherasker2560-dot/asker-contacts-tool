@@ -30,6 +30,7 @@ def qi(name):
 
 
 def main():
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')   # شاشة ويندوز والعربي
     work = sys.argv[1]
     only = set(sys.argv[2:])
     src = connect(work)
