@@ -59,6 +59,12 @@ if ($ResetDb) {
   & $psql -h 127.0.0.1 -p $PgPort -U postgres -d postgres -q -X -c "drop database if exists asker with (force)"
 }
 $exists = & $psql -h 127.0.0.1 -p $PgPort -U postgres -d postgres -tAX -c "select 1 from pg_database where datname = 'asker'"
+# تسطيب قبل كده وقف في النص (القاعدة موجودة بس إعدادات المحرك ماتكتبتش): نعملها من الأول
+if ("$exists".Trim() -eq "1" -and -not (Test-Path (Join-Path $Conf "postgrest.conf"))) {
+  Say "تسطيب قبل كده ماكملش: القاعدة هتتعمل من الأول"
+  & $psql -h 127.0.0.1 -p $PgPort -U postgres -d postgres -q -X -c "drop database if exists asker with (force)"
+  $exists = ""
+}
 if ("$exists".Trim() -ne "1") {
   & (Join-Path $PgBin "createdb.exe") -h 127.0.0.1 -p $PgPort -U postgres asker
   Get-ChildItem (Join-Path $Pharmacy "db") -Filter "*.sql" | Where-Object { $_.Name -match '^\d\d-' } | Sort-Object Name |

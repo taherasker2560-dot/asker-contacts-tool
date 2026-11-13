@@ -2,6 +2,7 @@
 # بورتات لوحدها، فمش بيلمس فارمافلاي ولا SQL Server بتاع الهَب ولا أي PostgreSQL تاني.
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
+try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}   # العربي يبان صح، وget.ps1 بيقراه صح
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $env:PGCLIENTENCODING = "UTF8"          # ملفات القاعدة عربي UTF-8
 $env:PGOPTIONS = "-c client_min_messages=warning"
