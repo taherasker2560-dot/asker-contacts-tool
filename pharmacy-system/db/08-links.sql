@@ -111,9 +111,9 @@ from (
   from ph.sale_lines sl join ph.sales s on s.id = sl.sale_id
   where s.status = 'posted' and s.business_day > ph.business_day() - 30
   union all
-  select sl.item_id, -rl.qty_units
-  from ph.sale_return_lines rl join ph.sale_lines sl on sl.id = rl.sale_line_id join ph.sale_returns r on r.id = rl.return_id
-  where r.at > now() - interval '30 days'
+  select rl.item_id, -rl.qty_units
+  from ph.sale_return_lines rl join ph.sale_returns r on r.id = rl.return_id
+  where r.business_day > ph.business_day() - 30
 ) x
 group by x.item_id;
 

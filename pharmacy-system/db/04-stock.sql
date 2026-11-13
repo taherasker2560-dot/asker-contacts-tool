@@ -10,6 +10,7 @@ create table ph.locations (
   supplier_id     integer references ph.suppliers (id),     -- مخزن الانتظار تبع مورد (ابن سينا، فارما)
   counts_as_stock boolean not null default true,            -- قرار المالك: مخزن الانتظار يتحسب في الرصيد ولا لأ
   is_default_sale boolean not null default false,           -- البيع بيطلع منه لو الكاشير ماحددش
+  legacy_id       text unique,                              -- المخزن في فارمافلاي (StoreID)
   unique (branch_id, name),
   check (kind <> 'waiting' or supplier_id is not null)
 );
@@ -21,7 +22,8 @@ create table ph.batches (
   expiry       date,
   public_price numeric(12, 2) check (public_price > 0),     -- سعر العلبة على التشغيلة دي
   unit_cost    numeric(14, 4) check (unit_cost >= 0),       -- تكلفة الوحدة الصغيرة بعد الخصم والبونص
-  source       text not null check (source in ('opening', 'purchase', 'unbatched')),
+  source       text not null check (source in ('opening', 'purchase', 'unbatched', 'import')),
+  legacy_key   text unique,                                 -- التشغيلة في فارمافلاي (للنقل بس)
   created_at   timestamptz not null default now(),
   unique (id, item_id)                                      -- عشان الحركة ماتتسجلش على تشغيلة صنف تاني
 );
@@ -38,7 +40,7 @@ create table ph.stock_moves (
   qty_units    numeric(14, 2) not null check (qty_units <> 0),
   unit_cost    numeric(14, 4),
   doc_type     text not null check (doc_type in ('opening', 'purchase', 'purchase_return', 'sale', 'sale_return',
-                                                 'transfer', 'count')),
+                                                 'transfer', 'count', 'adjust')),
   doc_id       bigint not null,
   by_user      uuid default auth.uid(),
   foreign key (batch_id, item_id) references ph.batches (id, item_id)
@@ -64,6 +66,7 @@ declare
   v_qty   numeric;
   v_allow boolean;
 begin
+  if ph.importing() then return new; end if;   -- النقل: الأرصدة بتتحسب مرة واحدة في الآخر
   insert into ph.stock_balances as b (item_id, location_id, batch_id, qty_units, updated_at)
   values (new.item_id, new.location_id, new.batch_id, new.qty_units, now())
   on conflict (item_id, location_id, batch_id)
@@ -267,3 +270,41 @@ end $$;
 -- سطور الجرد بتتقفل بعد الترحيل (الترحيل نفسه بيكتب system_units قبل ما يقفل الرأس)
 create trigger stock_count_lines_locked before insert or update or delete on ph.stock_count_lines
   for each row execute function ph.forbid_posted_lines('stock_counts', 'count_id');
+
+-- -----------------------------------------------------------------------------------------------------
+-- تسوية: تالف، منتهي اتشال، فرق، أو تسوية النقل من فارمافلاي. كل سطر حركة على تشغيلة
+-- {"location_id": 1, "reason": "damaged", "note": "…", "lines": [{"batch_id": 9, "qty_units": -2}]}
+-- -----------------------------------------------------------------------------------------------------
+create table ph.stock_adjustments (
+  id          bigint generated always as identity primary key,
+  no          text unique,
+  location_id smallint references ph.locations (id),
+  reason      text not null check (reason in ('damaged', 'expired', 'count', 'transfer', 'reconcile', 'other')),
+  at          timestamptz not null default now(),
+  note        text check (char_length(note) <= 300),
+  source      text not null default 'ph' check (source in ('ph', 'pharmafly')),
+  legacy_no   text,
+  by_user     uuid default auth.uid()
+);
+create trigger stock_adjustments_locked before update or delete on ph.stock_adjustments for each row execute function ph.forbid_change();
+
+create function ph.post_adjustment(p jsonb) returns text
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_adj    ph.stock_adjustments;
+  v_loc    ph.locations;
+  l        jsonb;
+  bt       ph.batches;
+begin
+  perform ph.require_role(array['owner', 'manager']);
+  if coalesce(p ->> 'reason', '') not in ('damaged', 'expired', 'count', 'other') then raise exception 'سبب التسوية مش معروف'; end if;
+  select * into strict v_loc from ph.locations where id = (p ->> 'location_id')::smallint;
+  insert into ph.stock_adjustments (no, location_id, reason, note)
+  values (ph.next_doc_no('ADJ', v_loc.branch_id), v_loc.id, p ->> 'reason', p ->> 'note') returning * into v_adj;
+  for l in select * from jsonb_array_elements(p -> 'lines') loop
+    select * into strict bt from ph.batches where id = (l ->> 'batch_id')::bigint;
+    insert into ph.stock_moves (item_id, batch_id, location_id, qty_units, unit_cost, doc_type, doc_id)
+    values (bt.item_id, bt.id, v_loc.id, (l ->> 'qty_units')::numeric, bt.unit_cost, 'adjust', v_adj.id);
+  end loop;
+  return v_adj.no;
+end $$;

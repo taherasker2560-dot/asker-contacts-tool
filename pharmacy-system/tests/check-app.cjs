@@ -20,15 +20,15 @@ const ok = (cond, msg) => { if (cond) console.log('OK  ', msg); else { failed++;
     const noSideScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 
     // الخريطة: 7 أقسام + المراحل، و34 شاشة
-    ok(await page.locator('#mapView .section').count() === 8, `${scheme}: الخريطة فيها 7 أقسام + المراحل`);
-    ok(await page.locator('#mapView .row').count() === 34, `${scheme}: الخريطة فيها 34 شاشة`);
+    ok(await page.locator('#mapView .section').count() === 9, `${scheme}: الخريطة فيها العيوب + 7 أقسام + المراحل`);
+    ok(await page.locator('#mapView .row').count() === 40, `${scheme}: الخريطة فيها 6 عيوب + 34 شاشة`);
     ok(await noSideScroll(), `${scheme}: الخريطة من غير سكرول جانبي`);
     if (shotsDir && scheme === 'light') await page.screenshot({ path: path.join(shotsDir, 'map.png'), fullPage: true });
 
     // القاعدة
     await page.click('#modeDb');
     ok(await page.locator('#dbView .rules li').count() === 8, `${scheme}: قواعد القاعدة الـ 8`);
-    ok(await page.locator('#dbView .row').count() === 10, `${scheme}: ملفات القاعدة الـ 10`);
+    ok(await page.locator('#dbView .row').count() === 11, `${scheme}: ملفات القاعدة الـ 11`);
     ok(await noSideScroll(), `${scheme}: القاعدة من غير سكرول جانبي`);
     if (shotsDir) await page.screenshot({ path: path.join(shotsDir, `db-${scheme}.png`), fullPage: true });
 
@@ -50,6 +50,9 @@ const ok = (cond, msg) => { if (cond) console.log('OK  ', msg); else { failed++;
     ok(seen === 25, `${scheme}: اتفتحت ${seen} شاشة في الأقسام الخمسة (المتوقع 25)`);
     await page.click('#gearBtn');
     ok(await page.locator('#chips .chip').count() === 4, `${scheme}: الترس بيفتح الإعدادات (4 شاشات)`);
+    await page.click('#chips .chip[data-tab="import"]');
+    ok(await page.locator('#panel .stat').count() === 3, `${scheme}: شاشة النقل من فارمافلاي فيها الملخص`);
+    if (shotsDir) await page.screenshot({ path: path.join(shotsDir, `import-${scheme}.png`) });
     await page.click('#navIn button[data-sec="sales"]');
     await page.click('#chips .chip[data-tab="pos"]');
     ok(await page.locator('#panel .offline').count() === 1, `${scheme}: الكاشير بيوضح شغله والنت واقف`);

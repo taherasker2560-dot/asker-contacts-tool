@@ -9,7 +9,7 @@ create table ph.manufacturers (
 
 create table ph.categories (
   id      smallint generated always as identity primary key,
-  code    text not null unique check (code ~ '^[a-z_]{2,40}$'),   -- نفس تصنيفات الموقع: antibiotic, pain_fever ...
+  code    text not null unique check (code ~ '^[a-z0-9_]{2,40}$'),   -- نفس تصنيفات الموقع: antibiotic, pain_fever ...
   name_ar text not null check (char_length(name_ar) between 2 and 80)
 );
 

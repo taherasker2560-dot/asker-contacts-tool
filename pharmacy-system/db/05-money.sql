@@ -75,6 +75,7 @@ create table ph.party_balances (
 create function ph.apply_party_move() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
+  if ph.importing() then return new; end if;   -- النقل: الأرصدة بتتحسب مرة واحدة في الآخر
   if new.party_type = 'customer' and not exists (select 1 from ph.customers where id = new.party_id) then
     raise exception 'عميل مش موجود: %', new.party_id;
   end if;
@@ -109,16 +110,19 @@ end $$;
 create table ph.payments (
   id            bigint generated always as identity primary key,
   no            text unique,
-  kind          text not null check (kind in ('from_customer', 'to_supplier')),
+  kind          text not null check (kind in ('from_customer', 'to_customer', 'to_supplier')),   -- to_customer = رد فلوس لعميل
   party_id      bigint not null,
   amount        numeric(12, 2) not null check (amount > 0),
-  account_id    smallint not null references ph.cash_accounts (id),
+  account_id    smallint references ph.cash_accounts (id),       -- فاضي بس في تاريخ فارمافلاي
   receipt_no    text check (char_length(receipt_no) <= 60),     -- رقم إيصال التحصيل بتاع المورد
   attachment_id bigint references ph.attachments (id),
   note          text check (char_length(note) <= 300),
   at            timestamptz not null default now(),
   client_uuid   uuid unique,
-  by_user       uuid default auth.uid()
+  source        text not null default 'ph' check (source in ('ph', 'pharmafly')),
+  legacy_no     text,
+  by_user       uuid default auth.uid(),
+  check (account_id is not null or source = 'pharmafly')
 );
 create trigger payments_locked before update or delete on ph.payments for each row execute function ph.forbid_change();
 
@@ -131,6 +135,7 @@ declare
   v_pay    ph.payments;
   v_shift  ph.shifts;
 begin
+  if v_kind not in ('from_customer', 'to_supplier') then raise exception 'نوع الدفع مش معروف: %', v_kind; end if;
   if v_kind = 'from_customer' then
     perform ph.require_role(array['owner', 'manager', 'pharmacist', 'cashier']);
   else

@@ -30,6 +30,7 @@ create table ph.settings (
   day_starts_at        smallint not null default 6 check (day_starts_at between 0 and 12), -- يوم الصيدلية من 6 الصبح لـ 6 الصبح
   allow_negative_stock boolean not null default false,  -- البيع قبل إدخال فاتورة الشرا (مش مستحب)
   near_expiry_days     integer not null default 90 check (near_expiry_days between 7 and 730),
+  import_mode          boolean not null default false,   -- شغال بس جوه ph.import_history (نقل تاريخ فارمافلاي)
   updated_at           timestamptz not null default now()
 );
 
@@ -40,6 +41,13 @@ create table ph.branches (
   address text check (char_length(address) <= 300),
   active  boolean not null default true
 );
+
+-- وقت النقل من فارمافلاي: الأرصدة بتتحسب مرة واحدة في الآخر بدل مع كل سطر (ملايين السطور)
+create function ph.importing() returns boolean
+language sql stable set search_path = '' as $$
+  select coalesce(current_setting('ph.importing', true), '') = 'on'
+     and coalesce((select s.import_mode from ph.settings s where s.id = 1), false)
+$$;
 
 -- يوم الصيدلية: بيع الساعة 1 بالليل بيتحسب على اليوم اللي قبله
 create function ph.business_day(ts timestamptz default now()) returns date
@@ -138,6 +146,7 @@ create table ph.audit_log (
 create function ph.audit() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
+  if ph.importing() then return coalesce(new, old); end if;
   insert into ph.audit_log (table_name, action, row_data, old_data)
   values (tg_table_name, tg_op,
           case when tg_op <> 'DELETE' then to_jsonb(new) end,
@@ -169,6 +178,7 @@ declare
   v_id     bigint := (to_jsonb(coalesce(new, old)) ->> tg_argv[1])::bigint;
   v_status text;
 begin
+  if ph.importing() then return coalesce(new, old); end if;   -- النقل بيكتب المستند مرحّل من الأول
   execute format('select status from ph.%I where id = $1', tg_argv[0]) into v_status using v_id;
   if v_status = 'posted' then
     raise exception 'سطور مستند مرحّل مابتتعدلش (%)', tg_table_name using errcode = '55000';

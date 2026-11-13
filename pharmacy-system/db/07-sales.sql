@@ -26,11 +26,14 @@ create table ph.sales (
   rx_no        text check (char_length(rx_no) <= 40),
   note         text check (char_length(note) <= 300),
   posted_at    timestamptz,
+  source       text not null default 'ph' check (source in ('ph', 'pharmafly')),
+  legacy_no    text,                                     -- رقم التذكرة في فارمافلاي
   by_user      uuid default auth.uid(),
   check (discount <= subtotal),
   check (on_credit = 0 or customer_id is not null)
 );
 create index on ph.sales (business_day);
+create index on ph.sales (legacy_no) where legacy_no is not null;
 create index on ph.sales (customer_id, at);
 
 create table ph.sale_lines (
@@ -223,22 +226,33 @@ end $$;
 -- {"client_uuid": "…", "sale_id": 12, "refund": "cash" | "credit", "shift_id": 7, "lines": [{"sale_line_id": 30, "qty_units": 1}]}
 -- -----------------------------------------------------------------------------------------------------
 create table ph.sale_returns (
-  id          bigint generated always as identity primary key,
-  no          text unique,
-  sale_id     bigint not null references ph.sales (id),
-  refund      text not null check (refund in ('cash', 'credit')),
-  total       numeric(14, 2) not null default 0,
-  at          timestamptz not null default now(),
-  client_uuid uuid not null unique,
-  by_user     uuid default auth.uid()
+  id           bigint generated always as identity primary key,
+  no           text unique,
+  sale_id      bigint references ph.sales (id),           -- فاضي بس في مرتجعات فارمافلاي اللي مش مربوطة بفاتورة
+  location_id  smallint not null references ph.locations (id),
+  customer_id  bigint references ph.customers (id),
+  refund       text not null check (refund in ('cash', 'credit')),
+  total        numeric(14, 2) not null default 0,
+  at           timestamptz not null default now(),
+  business_day date not null default ph.business_day(),
+  client_uuid  uuid not null unique,
+  source       text not null default 'ph' check (source in ('ph', 'pharmafly')),
+  legacy_no    text,
+  by_user      uuid default auth.uid(),
+  check (sale_id is not null or source = 'pharmafly'),
+  check (refund = 'cash' or customer_id is not null)
 );
 create table ph.sale_return_lines (
+  id           bigint generated always as identity primary key,
   return_id    bigint not null references ph.sale_returns (id),
-  sale_line_id bigint not null references ph.sale_lines (id),
+  sale_line_id bigint references ph.sale_lines (id),
+  item_id      bigint not null references ph.items (id),
+  batch_id     bigint not null references ph.batches (id),
   qty_units    numeric(14, 2) not null check (qty_units > 0),
-  value        numeric(14, 2) not null check (value >= 0),
-  primary key (return_id, sale_line_id)
+  value        numeric(14, 2) not null check (value >= 0)
 );
+create unique index sale_return_lines_once on ph.sale_return_lines (return_id, sale_line_id) where sale_line_id is not null;
+create index on ph.sale_return_lines (sale_line_id);
 create trigger sale_return_lines_locked before update or delete on ph.sale_return_lines for each row execute function ph.forbid_change();
 
 create function ph.post_sale_return(p jsonb) returns jsonb
@@ -266,8 +280,8 @@ begin
   v_refund := coalesce(p ->> 'refund', case when s.on_credit > 0 then 'credit' else 'cash' end);
   if v_refund = 'credit' and s.customer_id is null then raise exception 'مرتجع على الحساب محتاج عميل'; end if;
 
-  insert into ph.sale_returns (no, sale_id, refund, client_uuid)
-  values (ph.next_doc_no('SR', s.branch_id), s.id, v_refund, v_uuid) returning * into v_ret;
+  insert into ph.sale_returns (no, sale_id, location_id, customer_id, refund, client_uuid)
+  values (ph.next_doc_no('SR', s.branch_id), s.id, s.location_id, s.customer_id, v_refund, v_uuid) returning * into v_ret;
 
   for l in select * from jsonb_array_elements(p -> 'lines') loop
     select * into strict sl from ph.sale_lines where id = (l ->> 'sale_line_id')::bigint and sale_id = s.id;
@@ -278,7 +292,8 @@ begin
     end if;
     -- القيمة بنفس سعر البيع بعد نصيبها من خصم الفاتورة
     v_value := round(sl.line_total * v_qty / sl.qty_units * (1 - s.discount / nullif(s.subtotal, 0)), 2);
-    insert into ph.sale_return_lines (return_id, sale_line_id, qty_units, value) values (v_ret.id, sl.id, v_qty, v_value);
+    insert into ph.sale_return_lines (return_id, sale_line_id, item_id, batch_id, qty_units, value)
+    values (v_ret.id, sl.id, sl.item_id, sl.batch_id, v_qty, v_value);
     insert into ph.stock_moves (item_id, batch_id, location_id, qty_units, unit_cost, doc_type, doc_id)
     values (sl.item_id, sl.batch_id, s.location_id, v_qty, sl.unit_cost, 'sale_return', v_ret.id);
     v_total := v_total + v_value;

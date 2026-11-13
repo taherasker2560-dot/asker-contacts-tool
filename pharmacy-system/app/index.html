@@ -275,7 +275,7 @@ const SECTIONS = [
     id: 'settings', label: 'الإعدادات', icon: 'settings', viaGear: true, why: 'من الترس اللي فوق.',
     tabs: [
       { id: 'staff', label: 'الموظفين والأدوار', apps: ['admin'], db: 'staff · RLS', what: 'مالك، مدير، صيدلي، كاشير، توصيل. كل دور يشوف ويعمل شغله بس.' },
-      { id: 'import', label: 'النقل من فارمافلاي', apps: ['admin'], db: 'post_opening_stock · post_opening_balances', what: 'الأصناف بأرقامها، التشغيلات برصيدها، وأرصدة العملاء والموردين. مرة واحدة ومطابقة الأرقام.' },
+      { id: 'import', label: 'النقل من فارمافلاي', apps: ['admin'], db: 'import_history · stage · import_issues', what: 'كل تاريخ فارمافلاي من 2018 بتواريخه وأرقامه، والأرصدة بتطابق فارمافلاي النهارده، ومشاكل التاريخ بتظهرلك.' },
       { id: 'audit', label: 'سجل التعديلات', apps: ['admin'], db: 'audit_log', what: 'مين غيّر سعر أو حد عميل أو فاتورة وإمتى.' },
       { id: 'pref', label: 'إعدادات الصيدلية', apps: ['admin'], db: 'settings', what: 'بداية اليوم (6 الصبح)، البيع قبل إدخال الفاتورة مسموح ولا لأ، تنبيه الصلاحية.' }
     ]
@@ -290,6 +290,15 @@ const SECTIONS = [
       { id: 'laptop', label: 'اللاب (الهَب)', apps: ['admin'], db: '—', what: 'بيقف بعد النقل. شغلته الوحيدة: نقل الداتا من فارمافلاي ومقارنة الأرقام وقت التشغيل جنب بعض.' }
     ]
   }
+];
+
+const FIXES = [
+  ['الداتا محبوسة في جهاز الصيدلية', 'قاعدة على السحابة، كل بيعة بتبان على الموبايل لحظتها'],
+  ['البيع بطيء وقت الزحمة («البيع المؤقت»)', 'كاشير بالباركود والكيبورد، ويشتغل والنت واقف'],
+  ['بيع من غير رصيد، ومن تشغيلة غلط، ومنتهي', 'القاعدة بترفضهم، والأقرب صلاحية تلقائي'],
+  ['التذاكر بتتمسح', 'مفيش مسح: مرتجع أو تسوية، وكل تعديل متسجل'],
+  ['العملاء بيعدّوا حدهم', 'الحد بيتطبق وقت البيع إلا بصلاحيتك'],
+  ['خصم الكارت غلط، والأسماء بتتقص عند 25 حرف', 'الخصم من الفواتير الفعلية، والاسم كامل بالعربي']
 ];
 
 const RULES = [
@@ -313,7 +322,8 @@ const DB_GROUPS = [
   { name: 'البيع', file: '07-sales', t: 'sales · sale_lines · sale_payments · sale_returns · controlled_register' },
   { name: 'الربط', file: '08-links', t: 'item_stock_rules · shortage_marks · supplier_offers · online_orders · outreach_* · device_keys' },
   { name: 'التقارير', file: '09-reports', t: 'v_stock · v_expiring · v_item_card · v_sales_daily · v_customer_dues · v_supplier_balances · v_cash_balances · v_slow_movers' },
-  { name: 'الأمان', file: '10-security', t: 'RLS · policies · grants' }
+  { name: 'الأمان', file: '10-security', t: 'RLS · policies · grants' },
+  { name: 'النقل من فارمافلاي', file: '11-import', t: 'stage.* · import_history · import_issues · rebuild_balances' }
 ];
 
 const FLOW = [
@@ -325,11 +335,11 @@ const FLOW = [
 ];
 
 const PHASES = [
-  ['قاعدة البيانات', ['الملفات دي على نسخة تجريبية من Supabase.', 'نقل تجريبي من نسخة فارمافلاي، ومطابقة الأرصدة والحسابات مع تقاريره.']],
+  ['نسخة فارمافلاي الحقيقية', ['فك ← خريطة الجداول ← ملف الربط ← النقل على نسخة تجريبية.', 'الأرصدة والحسابات تطابق، ونراجع مشاكل التاريخ سوا.']],
   ['الكاشير والإدارة الأساسية', ['شاشة الكاشير (باركود، أوفلاين، طابعة).', 'الأصناف، فواتير الشرا، المرتجعات، الورديات.']],
-  ['التشغيل جنب فارمافلاي', ['أسبوعين لشهر، ومقارنة البيع والرصيد كل يوم.', 'التبديل بس لما الأرقام تتطابق.']],
-  ['ربط شغلنا', ['البوت والموقع وأداة التواصل يقروا ويكتبوا في القاعدة الجديدة.', 'اللاب يقف.']],
-  ['الحسابات الكاملة والتقارير', ['كشوف الحساب، المصروفات، الأدوية المزمنة، التواصل.']]
+  ['التشغيل جنب فارمافلاي', ['أسبوعين لشهر، والنقل يتعاد كل ليلة من آخر نسخة.', 'التبديل بس لما الأرقام تتطابق كل يوم.']],
+  ['ربط شغلنا', ['البوت والموقع وأداة التواصل على القاعدة الجديدة.', 'اللاب يقف.']],
+  ['الميزات الزيادة', ['طلبيات بالموسم، توقّع الصلاحية، الأدوية المزمنة، التقارير الكاملة.']]
 ];
 
 // ---------- أمثلة للشاشات (مش داتا حقيقية) ----------
@@ -414,6 +424,16 @@ const PANELS = {
       ${item('فيزا', '', num('6,105.00'))}
       ${item('محفظة / InstaPay', '', num('1,330.00'))}
     </div>`,
+  import: () => `
+    <div class="stats">${stat('876,000', 'فاتورة بيع')}${stat('2018', 'من سنة')}${stat('1:56', 'دقيقة نقل')}</div>
+    <div class="list">
+      ${item('الرصيد = فارمافلاي', 'كل تشغيلة في كل مخزن', '<span class="pill p-green">مطابق</span>')}
+      ${item('حسابات العملاء والموردين', 'تسوية نقل واحدة: 3 عملاء', '<span class="pill p-yellow">راجعها</span>')}
+      ${item('بيع من غير رصيد', '214 صنف · أولها 2018-03-04', '<span class="pill p-yellow">تاريخ</span>')}
+      ${item('بيع منتهي', '37 صنف', '<span class="pill p-red">تاريخ</span>')}
+      ${item('تذاكر اتمسحت', '1,120 رقم ناقص', '<span class="pill p-red">تاريخ</span>')}
+    </div>
+    <p class="note">الأرقام مثال لشكل الملخص. اللي في «حجم 8 سنين» اتقاس فعلًا على داتا متولّدة.</p>`,
   shifts: () => `
     <div class="list">
       ${item('المفروض في الدرج', 'افتتاح 200 + بيع كاش + تحصيل − مرتجع', num('9,410.00'))}
@@ -433,10 +453,11 @@ function cardFor(sec, tab) {
 function drawMap() {
   const n = SECTIONS.reduce((a, s) => a + s.tabs.length, 0);
   let html = `<div class="lead">
-      <p><b>برنامج صيدلية مستقل</b> بقاعدة بيانات بتاعته: بيع وشرا ومخزن وحسابات وتقارير، زي فارمافلاي وأقوى. والبوت والموقع وأداة التواصل بيقروا ويكتبوا فيه على طول.</p>
+      <p><b>برنامج صيدلية مستقل</b> بقاعدة بيانات بتاعته: بيع وشرا ومخزن وحسابات وتقارير، زي فارمافلاي وأقوى. <b>بيبدأ كأنه شغال من 2018</b>: تاريخ فارمافلاي كله بيتنقل فيه. والبوت والموقع وأداة التواصل بيقروا ويكتبوا فيه على طول.</p>
       <p class="hint">${SECTIONS.length} أقسام · ${n} شاشة. الشارة بتقول الشاشة هتبقى فين:</p>
       <div class="legend">${Object.keys(APP).map((a) => `<span class="badge ${APP[a][1]}">${APP[a][0]}</span>`).join('')}</div>
     </div>`;
+  html += `<section class="section"><header><div><h2>اللي هيتصلح من فارمافلاي</h2><p class="why">من شغلنا، مش افتراض.</p></div></header><div class="rows">${FIXES.map(([a, b]) => `<div class="row"><span class="name">${a}</span><span class="tags"></span><p class="what">← ${b}</p></div>`).join('')}</div></section>`;
   for (const s of SECTIONS) {
     html += `<section class="section" aria-labelledby="sec-${s.id}"><header><svg viewBox="0 0 24 24" aria-hidden="true">${ICON[s.icon]}</svg><div><h2 id="sec-${s.id}">${s.label}</h2><p class="why">${s.why}</p></div></header><div class="rows">`;
     for (const t of s.tabs) {
@@ -454,10 +475,10 @@ function drawMap() {
 
 // ---------- القاعدة ----------
 function drawDb() {
-  let html = `<div class="lead"><p><b>PostgreSQL</b> في مكان لوحده (<span class="mono">schema ph</span>): 54 جدول، 13 تقرير لحظي، و15 دالة ترحيل. اتجربت على يوم شغل كامل (77 اختبار) واختبار كاشيرين على آخر علبة.</p></div>
+  let html = `<div class="lead"><p><b>PostgreSQL</b> في مكان لوحده (<span class="mono">schema ph</span>): 57 جدول، 13 تقرير لحظي، 11 دالة ترحيل، ودالة النقل من فارمافلاي. اتجربت على يوم شغل كامل (77 اختبار)، وكاشيرين على آخر علبة، والنقل على تاريخ 2018–2026 (38 اختبار)، وعلى حجم 8 سنين في أقل من دقيقتين.</p></div>
     <section class="section"><header><div><h2>قواعد القاعدة</h2><p class="why">دي اللي بتخليها أثبت من برامج كتير.</p></div></header><ol class="rules">${RULES.map((r) => `<li>${r}</li>`).join('')}</ol></section>
     <section class="section"><header><div><h2>كل مستند بيعمل إيه</h2><p class="why">في عملية واحدة.</p></div></header><div class="flow">${FLOW.map(([a, b]) => `<div class="step"><b>${a}</b><span>${b}</span></div>`).join('')}</div></section>
-    <section class="section"><header><div><h2>الجداول</h2><p class="why">10 ملفات في الفولدر <span class="mono">pharmacy-system/db</span></p></div></header><div class="rows">`;
+    <section class="section"><header><div><h2>الجداول</h2><p class="why">11 ملف في الفولدر <span class="mono">pharmacy-system/db</span></p></div></header><div class="rows">`;
   for (const g of DB_GROUPS) {
     html += `<div class="row"><span class="name">${g.name}</span><span class="tags"><span class="mono">${g.file}.sql</span></span><p class="mono">${esc(g.t)}</p></div>`;
   }

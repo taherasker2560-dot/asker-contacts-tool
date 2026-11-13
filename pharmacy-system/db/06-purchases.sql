@@ -41,9 +41,11 @@ create table ph.purchase_invoices (
   paid_account_id smallint references ph.cash_accounts (id),
   created_at      timestamptz not null default now(),
   posted_at       timestamptz,
+  source          text not null default 'ph' check (source in ('ph', 'pharmafly')),
+  legacy_no       text,
   by_user         uuid default auth.uid(),
   unique (supplier_id, supplier_doc_no),                -- نفس فاتورة المورد ماتتدخلش مرتين
-  check (paid_amount = 0 or paid_account_id is not null)
+  check (paid_amount = 0 or paid_account_id is not null or source = 'pharmafly')
 );
 
 create table ph.purchase_invoice_lines (
@@ -138,6 +140,8 @@ create table ph.purchase_returns (
   total          numeric(14, 2),
   created_at     timestamptz not null default now(),
   posted_at      timestamptz,
+  source         text not null default 'ph' check (source in ('ph', 'pharmafly')),
+  legacy_no      text,
   by_user        uuid default auth.uid()
 );
 create table ph.purchase_return_lines (

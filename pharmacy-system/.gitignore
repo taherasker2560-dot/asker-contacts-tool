@@ -1,0 +1,12 @@
+# داتا فارمافلاي ممنوع تترفع (فيها أسامي العملاء وأرقامهم)
+*.bak
+*.mdf
+*.ldf
+*.zip
+*.rar
+*.7z
+mssql.env
+discovery.json
+discovery.md
+unpacked/
+__pycache__/

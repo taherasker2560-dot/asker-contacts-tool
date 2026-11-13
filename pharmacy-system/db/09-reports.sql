@@ -47,9 +47,12 @@ with s as (
   from ph.sales s where s.status = 'posted' group by s.business_day
 ),
 r as (
-  select ph.business_day(r.at) as business_day, sum(r.total) as returns,
-         sum((select coalesce(sum(round(rl.qty_units * coalesce(sl.unit_cost, 0), 2)), 0)
-              from ph.sale_return_lines rl join ph.sale_lines sl on sl.id = rl.sale_line_id where rl.return_id = r.id)) as returns_cost
+  select r.business_day, sum(r.total) as returns,
+         sum((select coalesce(sum(round(rl.qty_units * coalesce(sl.unit_cost, b.unit_cost, 0), 2)), 0)
+              from ph.sale_return_lines rl
+              join ph.batches b on b.id = rl.batch_id
+              left join ph.sale_lines sl on sl.id = rl.sale_line_id
+              where rl.return_id = r.id)) as returns_cost
   from ph.sale_returns r group by 1
 )
 select s.business_day, s.invoices, s.total, s.paid, s.on_credit,

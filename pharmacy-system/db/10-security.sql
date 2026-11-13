@@ -96,7 +96,8 @@ end $$;
 -- الدفاتر والبيع والفلوس: مفيش كتابة مباشرة خالص (ولا حتى المالك) — دوال الترحيل بس
 revoke insert, update, delete on ph.stock_moves, ph.stock_balances, ph.batches, ph.money_moves, ph.party_ledger,
   ph.party_balances, ph.sales, ph.sale_lines, ph.sale_payments, ph.sale_returns, ph.sale_return_lines,
-  ph.controlled_register, ph.payments, ph.expenses, ph.shifts, ph.doc_counters, ph.audit_log, ph.stock_openings
+  ph.controlled_register, ph.payments, ph.expenses, ph.shifts, ph.doc_counters, ph.audit_log, ph.stock_openings,
+  ph.stock_adjustments
   from authenticated;
 
 -- الدوال: الموظفين يناديوها (كل دالة بتتأكد من الدور جواها)، والموقع ليه دالتين بس
@@ -105,6 +106,7 @@ grant execute on function
   ph.my_role(), ph.has_role(text[]), ph.business_day(timestamptz), ph.find_items(text, integer),
   ph.post_sale(jsonb), ph.post_sale_return(jsonb), ph.open_shift(smallint, numeric), ph.close_shift(bigint, numeric),
   ph.post_purchase_invoice(bigint), ph.post_purchase_return(bigint), ph.post_transfer(bigint), ph.post_stock_count(bigint),
-  ph.post_payment(jsonb), ph.post_expense(jsonb), ph.post_opening_stock(smallint, jsonb, text), ph.post_opening_balances(jsonb)
+  ph.post_payment(jsonb), ph.post_expense(jsonb), ph.post_opening_stock(smallint, jsonb, text), ph.post_opening_balances(jsonb),
+  ph.post_adjustment(jsonb), ph.norm_phone(text), ph.importing()
   to authenticated;
 grant execute on function ph.store_catalog(text, integer), ph.store_place_order(jsonb) to anon, authenticated;
