@@ -2,7 +2,7 @@
   الأيقونة اللي على سطح المكتب بتشغّل ده: لو البرنامج مش شغال يشغّله (start-trial.ps1)، وبعدين يفتحه في نافذة لوحده
   (Edge أو Chrome بخيار --app): من غير شريط عنوان ولا تابات، فالمتصفح مش بياخد أي مفتاح قبل البرنامج.
   البروفايل لوحده في $Root\browser: الجلسة والفواتير اللي مستنية الشبكة بتاعة البرنامج بس، ومفيش إضافات بتلعب في المفاتيح.
-  لم يُختبر على ويندوز لسه.
+  جلسة اللاب صلّحت نفس الفكرة واتجربت (3 ثواني والنافذة قدام)، والنسخة دي من وصفها (2026-11-14) ولسه ماتجربتش على ويندوز.
 #>
 param(
   [string]$Root = "D:\AskerTrial",
@@ -14,6 +14,28 @@ function Show-Error([string]$m) {
   Add-Type -AssemblyName PresentationFramework
   [System.Windows.MessageBox]::Show($m, "صيدلية عسكر", "OK", "Error") | Out-Null
 }
+
+# النافذة بتاخد وقت تفتح (لحد 30 ثانية بعد تشغيل الجهاز) وكانت بتفتح ورا الشبابيك التانية، فكان بيبان إن الأيقونة
+# مابتعملش حاجة (اتلاحظ على اللاب 2026-11-14). دلوقتي: لو مفتوحة بنجيبها قدام على طول، ولو لأ بنفتحها ونجيبها قدام.
+Add-Type @"
+using System; using System.Runtime.InteropServices;
+public static class AskerWin {
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
+  [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
+}
+"@
+function Find-AppWindow {
+  Get-Process msedge, chrome -ErrorAction SilentlyContinue |
+    Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero -and $_.MainWindowTitle -like '*صيدلية عسكر*' } | Select-Object -First 1
+}
+function Show-AppWindow($p) {
+  $h = $p.MainWindowHandle
+  if ([AskerWin]::IsIconic($h)) { [AskerWin]::ShowWindow($h, 9) | Out-Null } else { [AskerWin]::ShowWindow($h, 5) | Out-Null }   # 9 = رجّعها من التصغير، 5 = اظهر
+  [AskerWin]::SetForegroundWindow($h) | Out-Null
+}
+$w = Find-AppWindow
+if ($w) { Show-AppWindow $w; exit 0 }
 
 $url = "http://127.0.0.1:$WebPort/"
 $up = $false
@@ -30,3 +52,9 @@ New-Item -ItemType Directory -Force -Path $userData | Out-Null
 Start-Process -FilePath $browser -ArgumentList @(
   "--app=$url", "--user-data-dir=`"$userData`"", "--no-first-run", "--no-default-browser-check", "--start-maximized"
 )
+# نستنى النافذة (لحد 60 ثانية) ونجيبها قدام
+for ($i = 0; $i -lt 120; $i++) {
+  Start-Sleep -Milliseconds 500
+  $w = Find-AppWindow
+  if ($w) { Show-AppWindow $w; break }
+}
