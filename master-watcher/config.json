@@ -1,0 +1,17 @@
+{
+  "ProcessName": "PharmaFly",
+  "PollSeconds": 2,
+  "HangSeconds": 6,
+  "FrameEverySeconds": 3,
+  "KeepFrames": 12,
+  "FrameScale": 0.6,
+  "JpegQuality": 55,
+  "ExitCheckWaitSeconds": 20,
+  "KeepIncidentsDays": 60,
+  "Alert": {
+    "Beep": true,
+    "TelegramBotToken": "",
+    "TelegramChatId": "",
+    "WebhookUrl": ""
+  }
+}
